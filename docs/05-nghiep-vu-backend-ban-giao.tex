@@ -448,11 +448,20 @@ Sau Sprint Review, nhóm tổ chức Retrospective nội bộ khoảng 15--20 ph
 
 \subsection{Kết luận Retrospective}
 
-Nhóm thống nhất tiếp tục duy trì việc tách nghiệp vụ thành các module rõ ràng, kiểm thử các tình huống thành công và thất bại, đồng thời ưu tiên hoàn thiện tính nhất quán dữ liệu trong thanh toán. Các hành động cải tiến được đưa vào Product Backlog của Sprint tiếp theo và được theo dõi đến khi có bằng chứng hoàn thành.
+Qua buổi Retrospective, nhóm thống nhất tiếp tục duy trì
+việc phân chia nghiệp vụ thành các module rõ ràng,
+đồng thời chú trọng kiểm thử cả những trường hợp
+thành công và thất bại. Bên cạnh đó, nhóm nhận thấy
+cần ưu tiên cải thiện tính nhất quán của dữ liệu trong
+quá trình thanh toán và xử lý đơn hàng. Những nội dung
+chưa hoàn thiện sẽ được bổ sung vào Product Backlog
+để tiếp tục theo dõi và thực hiện trong Sprint tiếp theo.
 
-\section{Tổng kết bàn giao}
-
-Phần Backend của BrewLite tập trung bảo đảm vòng đời đơn hàng có kiểm soát, thanh toán không bị ghi nhận lặp, tồn kho không bị bán vượt khi có yêu cầu đồng thời và điểm thưởng được tính trên số tiền thực trả. Năm thực thể Product, User, Order, OrderItem và Payment tạo nền dữ liệu cho thực đơn, tài khoản, đơn hàng, chi tiết đơn và thanh toán.
-
-Khi bàn giao, nhóm cần đối chiếu nội dung chương này với nhánh mã nguồn cuối cùng, đặc biệt là trạng thái tích hợp các module xác thực, đơn hàng và thanh toán; chính sách hoàn tiền; cùng các kết quả kiểm thử thực tế. Những nội dung chưa có bằng chứng triển khai hoặc đo kiểm được trình bày là hợp đồng API, giới hạn hiện tại hoặc hành động cải tiến, không được xem là tính năng đã nghiệm thu.
-
+Nhìn chung, các nghiệp vụ Backend của BrewLite tập trung
+vào việc quản lý vòng đời đơn hàng, bảo đảm thanh toán
+không bị ghi nhận trùng lặp, kiểm soát tồn kho khi có
+nhiều yêu cầu đồng thời và tính điểm thưởng dựa trên
+số tiền khách hàng thực trả. Hệ thống sử dụng năm thực thể
+chính gồm Product, User, Order, OrderItem và Payment
+để quản lý thực đơn, tài khoản người dùng, đơn hàng,
+chi tiết đơn hàng và thông tin thanh toán.
