@@ -1,0 +1,100 @@
+
+@startuml BrewLite_UseCase_DatDon_ThanhToan
+
+left to right direction
+
+skinparam packageStyle rectangle
+skinparam actorStyle awesome
+skinparam shadowing false
+skinparam linetype ortho
+skinparam defaultFontName Arial
+skinparam defaultFontSize 13
+
+skinparam usecase {
+    BackgroundColor #F7F7F7
+    BorderColor #333333
+    ArrowColor #333333
+}
+
+skinparam package {
+    BorderColor #333333
+    BackgroundColor white
+    FontStyle bold
+}
+
+'================ ACTORS ================
+
+actor "Khách hàng\n(Customer)" as KH
+actor "Cổng thanh toán\n«System»" as PG
+
+'================ SYSTEM ================
+
+rectangle "Đặt đơn & thanh toán" {
+
+    usecase "UC09\nĐặt đơn hàng" as UC09
+    usecase "UC08\nĐăng nhập" as UC08
+
+    usecase "UC10\nÁp mã khuyến mãi" as UC10
+    usecase "UC10a\nKiểm tra mã hợp lệ" as UC10a
+
+    usecase "UC11\nThanh toán không tiền mặt\n(Ví / Thẻ)" as UC11
+    usecase "UC11a\nThanh toán lại đơn hàng" as UC11a
+
+    usecase "UC13\nXem xác nhận đơn" as UC13
+    usecase "UC12\nTích điểm thưởng" as UC12
+    usecase "UC17\nTheo dõi trạng thái đơn" as UC17
+}
+
+'================ ASSOCIATIONS ================
+
+KH -- UC09
+PG -- UC11
+
+'================ INCLUDE ================
+
+UC09 ..> UC08 : <<include>>
+UC09 ..> UC11 : <<include>>
+UC10 ..> UC10a : <<include>>
+
+'================ EXTEND ================
+
+UC10 ..> UC09 : <<extend>>
+
+UC13 ..> UC11 : <<extend>>\n[thanh toán thành công]
+
+UC12 ..> UC11 : <<extend>>\n[Đơn chuyển sang PAID]
+
+UC17 ..> UC13 : <<extend>>
+
+UC11a ..> UC11 : <<extend>>\n[thanh toán thất bại]
+
+'================ NOTES ================
+
+note top of UC09
+  **Liên kết yêu cầu: FR-11 đến FR-17**
+  • Đặt đơn, thanh toán, xác nhận
+  • Tiền điều kiện: giỏ không rỗng,
+    đã đăng nhập
+end note
+
+note right of UC10
+  FR-13
+end note
+
+note left of UC13
+  FR-17
+end note
+
+note bottom of UC12
+  FR-19
+end note
+
+note bottom of UC11
+  **FR-14, FR-15, FR-16**
+  • Thiếu hoặc trùng Idempotency-Key:
+    không tạo giao dịch mới
+  • Thất bại: đơn vẫn PENDING,
+    giờ giữ nguyên
+end note
+
+@enduml
