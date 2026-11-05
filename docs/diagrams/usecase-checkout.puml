@@ -48,12 +48,13 @@ rectangle "Đặt đơn & thanh toán" {
 '================ ASSOCIATIONS ================
 
 KH -- UC09
+KH -- UC11
 PG -- UC11
 
 '================ INCLUDE ================
 
 UC09 ..> UC08 : <<include>>
-UC09 ..> UC11 : <<include>>
+UC11 ..> UC09 : <<include>>
 UC10 ..> UC10a : <<include>>
 
 '================ EXTEND ================
