@@ -1,0 +1,52 @@
+name: BrewLite CI
+
+on:
+  pull_request:
+    branches: [ "main" ]
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout mã nguồn
+      uses: actions/checkout@v3
+
+    - name: Cài đặt Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+
+    - name: Cài đặt Dependencies Backend
+      working-directory: ./apps/api
+      run: npm install
+
+    - name: Generate Prisma Client
+      working-directory: ./apps/api
+      run: npx prisma generate
+
+    - name: Kiểm tra Lint Backend
+      working-directory: ./apps/api
+      run: npm run lint
+
+    - name: Chạy Unit Test Backend
+      working-directory: ./apps/api
+      run: npm run test
+
+    - name: Build Backend
+      working-directory: ./apps/api
+      run: npm run build
+
+    - name: Cài đặt Dependencies Frontend
+      working-directory: ./apps/web
+      run: npm install
+
+    - name: Kiểm tra Lint Frontend
+      working-directory: ./apps/web
+      run: npm run lint
+
+    - name: Build Frontend
+      working-directory: ./apps/web
+      run: npm run build
