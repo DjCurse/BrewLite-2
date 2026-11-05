@@ -1,0 +1,92 @@
+@startuml BrewLite_UseCase_TongQuat
+
+left to right direction
+
+skinparam packageStyle rectangle
+skinparam actorStyle awesome
+skinparam shadowing false
+skinparam linetype ortho
+skinparam defaultFontName Arial
+skinparam defaultFontSize 13
+
+skinparam usecase {
+    BackgroundColor #FFF8E7
+    BorderColor #8B5E3C
+    ArrowColor #333333
+}
+
+skinparam package {
+    BorderColor #555555
+    BackgroundColor white
+    FontStyle bold
+}
+
+actor "Khách hàng\n(Customer)" as KH
+actor "Cổng thanh toán\n<<System>>" as PG
+
+rectangle "BrewLite - Hệ thống đặt cà phê không dùng tiền mặt" {
+
+    package "Menu" {
+        usecase "UC01\nXem thực đơn" as UC01
+        usecase "UC02\nXem chi tiết món" as UC02
+        usecase "UC03\nChọn size & topping" as UC03
+    }
+
+    package "Giỏ hàng" {
+        usecase "UC04\nThêm món vào giỏ" as UC04
+        usecase "UC05\nSửa số lượng / xóa món" as UC05
+        usecase "UC06\nXem giỏ hàng & tổng tạm tính" as UC06
+    }
+
+    package "Đặt đơn & thanh toán" {
+        usecase "UC09\nĐặt đơn hàng" as UC09
+        usecase "UC10\nÁp mã khuyến mãi" as UC10
+        usecase "UC11\nThanh toán không tiền mặt\n(Ví/Thẻ)" as UC11
+        usecase "UC12\nTích điểm thưởng" as UC12
+        usecase "UC13\nXem xác nhận đơn" as UC13
+    }
+
+    package "Xác thực" {
+        usecase "UC07\nĐăng ký tài khoản" as UC07
+        usecase "UC08\nĐăng nhập" as UC08
+    }
+
+    package "Hồ sơ cá nhân" {
+        usecase "UC14\nXem thông tin cá nhân" as UC14
+        usecase "UC15\nXem tổng điểm tích lũy" as UC15
+        usecase "UC16\nXem danh sách đơn hàng" as UC16
+        usecase "UC17\nTheo dõi trạng thái đơn" as UC17
+    }
+}
+
+'================ ASSOCIATIONS ================
+KH -- UC01
+KH -- UC06
+KH -- UC07
+KH -- UC08
+KH -- UC09
+KH -- UC11
+KH -- UC14
+PG -- UC11
+
+'================ MENU & GIỎ HÀNG ================
+UC02 ..> UC01 : <<extend>>
+UC04 ..> UC02 : <<extend>>
+UC04 ..> UC03 : <<include>>
+UC05 ..> UC06 : <<extend>>
+
+'================ ĐẶT ĐƠN & THANH TOÁN ================
+UC09 ..> UC08 : <<include>>
+UC11 ..> UC09 : <<include>>
+UC10 ..> UC09 : <<extend>>
+UC12 ..> UC11 : <<extend>>\n[thanh toán thành công]
+UC13 ..> UC11 : <<extend>>\n[thanh toán thành công]
+
+'================ HỒ SƠ CÁ NHÂN ================
+UC14 ..> UC08 : <<include>>
+UC15 ..> UC14 : <<extend>>
+UC16 ..> UC14 : <<extend>>\n[xem đơn đã đặt]
+UC17 ..> UC14 : <<extend>>\n[chọn một đơn]
+UC17 ..> UC13 : <<extend>>\n[bấm "Theo dõi đơn"]
+
+@enduml
