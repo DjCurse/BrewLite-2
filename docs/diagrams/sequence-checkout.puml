@@ -1,0 +1,66 @@
+@startuml sequence-checkout
+title Sequence Diagram - Use Case Checkout & Payment
+
+actor Customer
+participant "Next.js UI" as UI
+participant "NestJS API" as API
+database "Database" as DB
+participant "Payment Service" as Payment
+
+autonumber
+
+Customer -> UI: 1. Click "Thanh toán"
+UI -> API: POST /api/v1/orders/checkout\nHeader: Authorization (Bearer JWT)\nHeader: X-Idempotency-Key: {uuid}
+
+activate API
+API -> API: Kiểm tra & Validate JWT Token
+alt JWT Không hợp lệ / Hết hạn
+    API --> UI: 401 Unauthorized
+    UI --> Customer: Yêu cầu đăng nhập lại
+else JWT Hợp lệ
+    API -> API: Kiểm tra Idempotency Key (Redis/DB Cache)
+    alt Request bị trùng lặp (Idempotent Request)
+        API --> UI: 200 OK (Trả về kết quả giao dịch trước đó)
+        UI --> Customer: Hiển thị kết quả thanh toán đã xử lý
+    else Request hợp lệ (First-time Request)
+        API -> DB: Validate thông tin Cart/Products & Kho
+        activate DB
+        DB --> API: Thông tin tồn kho sản phẩm
+        deactivate DB
+
+        alt Tồn kho không đủ
+            API --> UI: 400 Bad Request (Hết hàng)
+            UI --> Customer: Hiển thị thông báo "Sản phẩm out-of-stock"
+        else Tồn kho hợp lệ
+            API -> Payment: POST /payment/charge (Amount, OrderInfo)
+            activate Payment
+            Payment -> Payment: Xử lý giao dịch ngân hàng/thẻ
+            
+            alt Thanh toán thất bại
+                Payment --> API: Response (Status: FAILED, Reason)
+                API --> UI: 400 Payment Failed
+                UI --> Customer: Thông báo thanh toán thất bại
+            else Thanh toán thành công
+                Payment --> API: Response (Status: SUCCESS, TransactionID)
+                deactivate Payment
+                
+                == Database Transaction ==
+                API -> DB: BEGIN TRANSACTION
+                activate DB
+                API -> DB: 1. Create Order (Status: PAID)
+                API -> DB: 2. Create OrderItems
+                API -> DB: 3. Update Product Stock (Trừ số lượng)
+                API -> DB: 4. Create LoyaltyTransaction (Cộng điểm)
+                API -> DB: COMMIT TRANSACTION
+                DB --> API: Order Created Successfully
+                deactivate DB
+                
+                API --> UI: 201 Created (Order Summary & Status)
+                UI --> Customer: Hiển thị màn hình "Đặt hàng thành công"
+            end
+        end
+    end
+end
+deactivate API
+
+@enduml

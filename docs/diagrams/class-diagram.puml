@@ -1,0 +1,116 @@
+@startuml class-diagram
+title Class Diagram - Domain Model (BrewLite System)
+
+enum OrderStatus {
+    PENDING
+    PAID
+    CANCELLED
+    COMPLETED
+}
+
+enum PaymentStatus {
+    PENDING
+    SUCCESS
+    FAILED
+    REFUNDED
+}
+
+enum PaymentMethod {
+    CREDIT_CARD
+    MOMO
+    VNPAY
+    CASH
+}
+
+enum PromotionType {
+    PERCENTAGE
+    FIXED_AMOUNT
+}
+
+enum LoyaltyType {
+    EARN
+    REDEEM
+}
+
+class User {
+    + String id
+    + String email
+    + String name
+    + String passwordHash
+    + String role
+    + Int loyaltyPoints
+    + DateTime createdAt
+}
+
+class Product {
+    + String id
+    + String name
+    + String description
+    + Decimal price
+    + Int stockQuantity
+    + Boolean isActive
+}
+
+class Order {
+    + String id
+    + String userId
+    + Decimal totalAmount
+    + Decimal discountAmount
+    + Decimal finalAmount
+    + OrderStatus status
+    + String idempotencyKey
+    + DateTime createdAt
+}
+
+class OrderItem {
+    + String id
+    + String orderId
+    + String productId
+    + Int quantity
+    + Decimal unitPrice
+    + Decimal totalPrice
+}
+
+class Payment {
+    + String id
+    + String orderId
+    + String transactionId
+    + PaymentMethod method
+    + PaymentStatus status
+    + Decimal amount
+    + DateTime paidAt
+}
+
+class Promotion {
+    + String id
+    + String code
+    + PromotionType type
+    + Decimal value
+    + Decimal minOrderValue
+    + DateTime startDate
+    + DateTime endDate
+    + Boolean isActive
+}
+
+class LoyaltyTransaction {
+    + String id
+    + String userId
+    + String orderId
+    + Int points
+    + LoyaltyType type
+    + DateTime createdAt
+}
+
+' Relations & Multiplicity
+User "1" -- "0..*" Order : places >
+User "1" -- "0..*" LoyaltyTransaction : owns >
+
+Order "1" *-- "1..*" OrderItem : contains >
+Order "1" -- "0..1" Payment : processed_by >
+Order "0..*" -- "0..1" Promotion : applies >
+
+Product "1" -- "0..*" OrderItem : referenced_in >
+
+Order "1" -- "0..1" LoyaltyTransaction : generates >
+
+@enduml
