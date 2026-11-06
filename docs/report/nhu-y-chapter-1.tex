@@ -1,0 +1,110 @@
+% Nội dung Như Ý phụ trách cho Chương 1, chèn sau tiêu đề Chương 1 trong main.tex.
+\section{Bối cảnh nghiệp vụ, Stakeholder và Phạm vi dự án}
+
+\subsection{Bối cảnh nghiệp vụ}
+
+BrewLite là hệ thống đặt món và quản lý hoạt động của chuỗi cửa hàng đồ uống/thức ăn. Hệ thống hướng đến việc chuẩn hóa quy trình từ xem thực đơn, lựa chọn sản phẩm, đặt món, thanh toán đến theo dõi trạng thái đơn hàng trên một nền tảng web tối ưu cho thiết bị di động. Đồng thời, hệ thống hỗ trợ cửa hàng quản lý tập trung thông tin sản phẩm, tồn kho, đơn hàng, khuyến mãi và giao dịch điểm thưởng.
+
+Trong quy trình rời rạc, khách hàng có thể phải tiếp cận thực đơn qua nhiều kênh khác nhau, khó nắm bắt tình trạng còn hàng và trạng thái xử lý đơn. Nhân viên tiếp nhận yêu cầu thủ công có thể nhầm lẫn về sản phẩm, số lượng, Size, Topping hoặc ghi chú. Việc quản lý giá bán, tồn kho, thanh toán và điểm thưởng ở nhiều nơi cũng làm tăng nguy cơ sai lệch dữ liệu và khó đối soát.
+
+BrewLite giải quyết các vấn đề trên bằng một luồng nghiệp vụ thống nhất. Khách hàng có thể duyệt thực đơn, tìm kiếm và lọc sản phẩm, xem thông tin chi tiết, lựa chọn Size/Topping, quản lý giỏ hàng, xác nhận đơn, thanh toán và theo dõi trạng thái. Các nghiệp vụ quan trọng như kiểm tra tồn kho, tính tổng tiền, áp dụng khuyến mãi và ghi nhận điểm thưởng được xử lý tại backend nhằm hạn chế sai lệch giữa giao diện và dữ liệu hệ thống.
+
+Các mục tiêu nghiệp vụ chính gồm:
+\begin{enumerate}
+    \item Cung cấp thực đơn tập trung, hỗ trợ tìm kiếm, lọc danh mục và xem chi tiết sản phẩm.
+    \item Hạn chế sai sót khi khách hàng lựa chọn sản phẩm, Size, Topping và số lượng.
+    \item Chuẩn hóa quy trình tạo đơn, kiểm tra tồn kho và tính tiền tại máy chủ.
+    \item Hỗ trợ thanh toán, khuyến mãi và tích điểm có kiểm soát.
+    \item Minh bạch trạng thái đơn hàng để khách hàng và nhân viên cùng theo dõi.
+    \item Xây dựng nền tảng có thể kiểm thử, triển khai và mở rộng theo kiến trúc của dự án.
+\end{enumerate}
+
+\subsection{Các bên liên quan (Stakeholders)}
+
+\begin{table}[htbp]
+\centering
+\small
+\caption{Các bên liên quan của hệ thống BrewLite}
+\begin{tabular}{|p{0.22\textwidth}|p{0.27\textwidth}|p{0.43\textwidth}|}
+\hline
+\textbf{Stakeholder} & \textbf{Vai trò} & \textbf{Nhu cầu chính} \\
+\hline
+Khách hàng & Người sử dụng trực tiếp & Xem thực đơn, tìm kiếm/lọc món, chọn Size/Topping, đặt và thanh toán, theo dõi đơn và điểm thưởng. \\
+\hline
+Nhân viên quầy & Tiếp nhận và hỗ trợ đơn & Tra cứu sản phẩm, xem thông tin đơn và cập nhật trạng thái theo quyền được cấp. \\
+\hline
+Nhân viên pha chế & Thực hiện món & Nhận danh sách món, số lượng, Size/Topping và ghi chú chính xác. \\
+\hline
+Quản lý cửa hàng & Theo dõi vận hành & Quản lý sản phẩm, giá, tồn kho, đơn hàng và chương trình khuyến mãi. \\
+\hline
+Quản trị hệ thống & Quản trị tài khoản và cấu hình & Quản lý người dùng/vai trò, kiểm soát truy cập và theo dõi tình trạng hệ thống. \\
+\hline
+Đơn vị cung cấp thanh toán & Hệ thống bên ngoài & Tiếp nhận yêu cầu thanh toán hợp lệ và trả kết quả giao dịch để đối soát. \\
+\hline
+Nhóm phát triển, giảng viên & Xây dựng và đánh giá sản phẩm & Yêu cầu, sơ đồ, mã nguồn, kiểm thử và tài liệu phải thống nhất, truy vết được. \\
+\hline
+\end{tabular}
+\end{table}
+
+\subsection{Phạm vi dự án}
+
+\subsubsection{Trong phạm vi (In-scope)}
+\begin{itemize}
+    \item \textbf{Thực đơn và sản phẩm:} danh sách sản phẩm, tìm kiếm, lọc theo danh mục, phân trang, xem chi tiết, giá, mô tả, hình ảnh và tình trạng còn hàng; lựa chọn Size/Topping trên giao diện.
+    \item \textbf{Tài khoản:} đăng ký, đăng nhập, xác thực và xem hồ sơ người dùng theo quyền truy cập.
+    \item \textbf{Giỏ hàng và đặt món:} thêm, chỉnh sửa, xóa món; thay đổi số lượng và tùy chọn; xác nhận đơn; kiểm tra tồn kho và tính tổng tiền ở backend.
+    \item \textbf{Thanh toán và ưu đãi:} tiếp nhận kết quả thanh toán, hạn chế ghi nhận trùng yêu cầu, áp dụng khuyến mãi và ghi nhận giao dịch điểm thưởng.
+    \item \textbf{Theo dõi đơn hàng:} xem đơn của người dùng và trạng thái xử lý từ lúc đặt đến khi hoàn tất.
+    \item \textbf{Dữ liệu và vận hành:} lưu trữ dữ liệu sản phẩm, đơn hàng, chi tiết đơn, thanh toán, khuyến mãi và điểm thưởng; kiểm tra sức khỏe API; kiểm thử tự động và triển khai theo kế hoạch nhóm.
+\end{itemize}
+
+\subsubsection{Ngoài phạm vi (Out-of-scope)}
+\begin{itemize}
+    \item Ứng dụng native riêng cho iOS/Android; MVP tập trung vào web responsive theo định hướng PWA.
+    \item Tích hợp thiết bị POS, máy in hóa đơn, máy quét mã vạch hoặc phần cứng chuyên dụng.
+    \item Quản lý mua hàng, nhà cung cấp, công nợ, kế toán tổng hợp, nhân sự và tính lương.
+    \item Đặt bàn, quản lý chỗ ngồi, điều phối giao hàng hoặc theo dõi lộ trình nhân viên giao hàng.
+    \item Kết nối trực tiếp mọi ngân hàng/ví điện tử trong MVP; giao dịch có thể chạy trên sandbox hoặc mô phỏng theo cấu hình nhóm thống nhất.
+    \item Dự báo nhu cầu, gợi ý món bằng AI và các chương trình khách hàng thân thiết nâng cao ngoài quy tắc điểm đã đặc tả.
+\end{itemize}
+
+\subsection{Giả định và ràng buộc}
+\begin{enumerate}
+    \item Giá sản phẩm được lưu dưới dạng số nguyên theo đơn vị đồng Việt Nam (VND).
+    \item Trong MVP Sprint 1, bảng \texttt{Product} là nguồn dữ liệu chuẩn cho tên, danh mục, mô tả, giá, hình ảnh, tồn kho và trạng thái kinh doanh của sản phẩm.
+    \item Lựa chọn Size/Topping ở Sprint 1 là dữ liệu lựa chọn giao diện. Phụ thu và quy tắc tính giá cuối cùng phải được nhóm thống nhất và kiểm tra tại backend trước khi hoàn thiện luồng đặt hàng/thanh toán Sprint 2.
+    \item Mô hình dữ liệu Product hiện tại chưa tách tồn kho theo chi nhánh; MVP sử dụng số lượng tồn kho chung của sản phẩm. Nếu cần quản lý theo từng cửa hàng, nhóm phải bổ sung mô hình chi nhánh/kho sau khi thống nhất.
+    \item PWA cần chạy trên HTTPS hoặc localhost để có thể cài đặt Service Worker.
+    \item Hệ thống sử dụng Next.js, NestJS, PostgreSQL và Prisma; các thành viên tích hợp thông qua Git branch và Pull Request.
+    \item Các cổng thanh toán bên ngoài cần có cấu hình sandbox hoặc thông tin tích hợp trước khi kiểm thử giao dịch thực tế.
+\end{enumerate}
+
+\subsection{Rủi ro và hướng giảm thiểu}
+\begin{table}[htbp]
+\centering
+\small
+\caption{Rủi ro chính của dự án và hướng giảm thiểu}
+\begin{tabular}{|p{0.27\textwidth}|p{0.26\textwidth}|p{0.39\textwidth}|}
+\hline
+\textbf{Rủi ro} & \textbf{Ảnh hưởng} & \textbf{Hướng giảm thiểu} \\
+\hline
+Nhiều yêu cầu đặt cùng sản phẩm khi tồn kho thấp & Bán vượt tồn kho & Kiểm tra và cập nhật tồn kho trong cùng transaction tại backend; kiểm thử đồng thời. \\
+\hline
+Giá Size/Topping không đồng nhất giữa UI và backend & Sai tổng tiền & Thống nhất bảng phụ thu; backend là nguồn tính tiền cuối cùng. \\
+\hline
+Yêu cầu/callback thanh toán bị gửi lại & Ghi nhận giao dịch hoặc điểm thưởng nhiều lần & Dùng Idempotency-Key/mã giao dịch duy nhất và transaction. \\
+\hline
+Các nhánh thay đổi schema/API không đồng bộ & Lỗi tích hợp, trễ tiến độ & Thống nhất contract, cập nhật tài liệu API và kiểm tra qua Pull Request. \\
+\hline
+CI hoặc môi trường cơ sở dữ liệu chưa sẵn sàng & Thiếu minh chứng kiểm thử, chậm nghiệm thu & Thiết lập workflow/biến môi trường sớm; lưu log và ảnh chụp CI thực tế. \\
+\hline
+Lộ secret hoặc dữ liệu người dùng & Ảnh hưởng bảo mật & Không commit secret; dùng biến môi trường, mã hóa mật khẩu và giới hạn quyền truy cập. \\
+\hline
+Kết nối mạng không ổn định & Gián đoạn trải nghiệm & Hiển thị trạng thái Loading/Empty/Error, nút tải lại và cache tĩnh PWA phù hợp. \\
+\hline
+\end{tabular}
+\end{table}
+
+\subsection{Kết luận}
+
+Phạm vi BrewLite tập trung vào quy trình đặt món và quản lý các dữ liệu cốt lõi phục vụ hoạt động cửa hàng. Việc xác định stakeholder, phạm vi, giả định và rủi ro ngay từ đầu giúp nhóm thống nhất kỳ vọng, hạn chế phát sinh ngoài MVP và làm cơ sở cho đặc tả SRS, mô hình UML, thiết kế dữ liệu, kiểm thử và triển khai ở các task tiếp theo.
