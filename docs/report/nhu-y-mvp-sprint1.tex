@@ -1,0 +1,67 @@
+% Nội dung Như Ý phụ trách: kết quả MVP Sprint 1 — Module Products.
+% Cập nhật trạng thái kiểm thử và bổ sung ảnh chụp màn hình sau khi chạy trên môi trường nhóm.
+\subsection{Kết quả MVP Sprint 1 — Module Products}
+
+Trong MVP Sprint 1, Như Ý phối hợp với Thanh Tuấn hoàn thiện module sản phẩm nhằm cung cấp dữ liệu đầu vào cho màn hình thực đơn và các bước đặt món tiếp theo. Phần triển khai tập trung vào API truy vấn sản phẩm, dữ liệu mẫu và giao diện web tối ưu cho thiết bị di động.
+
+\subsubsection{API quản lý và truy vấn sản phẩm}
+
+Module Products được xây dựng trên NestJS và Prisma, sử dụng bảng \texttt{Product} trong PostgreSQL. API cung cấp các chức năng sau:
+\begin{itemize}
+    \item \texttt{GET /products}: lấy danh sách sản phẩm; hỗ trợ tham số \texttt{page}, \texttt{pageSize}, \texttt{category} và \texttt{q} để phân trang, lọc danh mục và tìm kiếm theo tên/mô tả.
+    \item \texttt{GET /products/:id}: lấy thông tin chi tiết theo mã sản phẩm; trả về lỗi phù hợp khi mã không hợp lệ hoặc sản phẩm không tồn tại.
+\end{itemize}
+
+Kết quả danh sách gồm mảng \texttt{data}, danh sách \texttt{categories} và đối tượng \texttt{meta}. Metadata cho biết trang hiện tại, kích thước trang, tổng số sản phẩm, tổng số trang và khả năng chuyển trang. Việc truy cập cơ sở dữ liệu được thực hiện thông qua \texttt{PrismaService} dùng chung thay vì khởi tạo Prisma Client trực tiếp bên trong service.
+
+\subsubsection{Dữ liệu mẫu}
+
+File \texttt{apps/api/prisma/seed.ts} cung cấp dữ liệu sản phẩm mẫu cho các danh mục Trà sữa, Matcha, Cà phê và Trà trái cây. Seed được thiết kế để chạy lặp: sản phẩm đã tồn tại theo cặp tên/danh mục sẽ được cập nhật, sản phẩm chưa tồn tại sẽ được thêm mới. Cơ chế này tránh tạo bản ghi trùng khi nhóm cần khởi tạo lại dữ liệu demo. Seed chỉ phục vụ môi trường phát triển/demo; cần tránh chạy trong môi trường production vì dữ liệu mẫu có thể cập nhật lại giá trị và tồn kho của những sản phẩm được seed.
+
+\subsubsection{Giao diện Menu và Chi tiết sản phẩm}
+
+Giao diện được triển khai bằng Next.js App Router theo hướng mobile-first. Màn hình Menu có các thành phần: nhận diện BrewLite, giới thiệu thực đơn, ô tìm kiếm, bộ lọc danh mục, thẻ sản phẩm, giá bán và điều hướng sang trang chi tiết. Màn hình chi tiết hiển thị thông tin sản phẩm, tình trạng còn hàng, lựa chọn Size S/M/L và các Topping tùy chọn.
+
+Các trạng thái giao diện được xử lý riêng:
+\begin{itemize}
+    \item \textbf{Loading:} hiển thị khung chờ trong thời gian truy vấn API.
+    \item \textbf{Empty:} hiển thị thông báo khi không có sản phẩm phù hợp và cho phép quay lại toàn bộ thực đơn.
+    \item \textbf{Error:} hiển thị thông báo lỗi và nút thử tải lại.
+\end{itemize}
+
+Ứng dụng có manifest, biểu tượng kích thước 192\,$\times$\,192 và 512\,$\times$\,512, cùng Service Worker và trang dự phòng khi ngoại tuyến. Các lựa chọn Size/Topping trong Sprint 1 mới là lựa chọn giao diện; phụ thu cần được nhóm thống nhất và xác thực ở backend trong luồng đặt hàng của Sprint 2. Khi người dùng xác nhận lựa chọn, màn hình phát sự kiện \texttt{brewlite:product-selected} để module Giỏ hàng tích hợp tiếp.
+
+\subsubsection{Kiểm thử}
+
+Các trường hợp kiểm thử được bổ sung cho ProductsService gồm: phân trang và metadata; lọc danh mục; tìm kiếm theo tên/mô tả; bỏ lọc khi chọn “Tất cả”; kiểm tra giá trị phân trang không hợp lệ; tìm sản phẩm theo ID; và xử lý sản phẩm không tồn tại. ProductsController có kiểm thử tham số mặc định, truyền tham số lọc/phân trang, từ chối tham số sai và chuyển tiếp yêu cầu xem chi tiết. Component state của Menu có kiểm thử hiển thị trạng thái lỗi và trạng thái rỗng.
+
+Tổng cộng source test hiện có 18 trường hợp kiểm thử được định nghĩa. Tại thời điểm tạo báo cáo, các test chưa được xác nhận chạy thành công trong môi trường hiện tại do quá trình cài đặt dependency bị lỗi phân giải DNS tới npm registry. Vì vậy, không kết luận các test đã Pass; nhóm cần chạy lại trên máy có kết nối npm, xác nhận database và lưu log/ảnh chụp CI sau khi workflow được cấu hình.
+
+\subsubsection{Kết quả và phần cần tích hợp}
+
+\begin{table}[htbp]
+\centering
+\small
+\caption{Tổng hợp kết quả MVP Sprint 1 của phần Products}
+\begin{tabular}{|p{0.22\textwidth}|p{0.38\textwidth}|p{0.28\textwidth}|}
+\hline
+\textbf{Hạng mục} & \textbf{Kết quả trong source hiện tại} & \textbf{Trạng thái nghiệm thu} \\
+\hline
+API danh sách/chi tiết & Đã bổ sung controller và service & Cần chạy API với PostgreSQL \\
+\hline
+Phân trang, tìm kiếm, lọc & Đã triển khai ở ProductsService & Cần kiểm thử với dữ liệu DB \\
+\hline
+Seed dữ liệu & Seed chạy lặp theo tên/danh mục & Cần chạy trên DB nhóm \\
+\hline
+Menu và trang chi tiết & Đã triển khai trạng thái và lựa chọn Size/Topping & Cần chạy giao diện thực tế \\
+\hline
+PWA & Đã thêm manifest, icons, Service Worker và offline fallback & Cần kiểm tra trên HTTPS/localhost \\
+\hline
+Unit/Component Test & Đã viết 18 trường hợp & Chưa xác nhận kết quả chạy \\
+\hline
+CI và minh chứng PR & Phụ thuộc workflow của trưởng nhóm & Chờ workflow CI và quyền repo \\
+\hline
+\end{tabular}
+\end{table}
+
+Như vậy, phần source code MVP Sprint 1 cho module Products và giao diện Menu/Chi tiết đã được bổ sung ở mức mã nguồn. Việc nghiệm thu cuối cùng cần hoàn tất sau khi chạy test trên môi trường có dependency và PostgreSQL, tích hợp sự kiện lựa chọn với module Giỏ hàng, đồng thời nhận minh chứng CI thực tế từ Pull Request.
