@@ -1,0 +1,67 @@
+@startuml activity-checkout
+title Activity Diagram - Quy trình Đặt hàng & Thanh toán (End-to-End)
+
+|#LightYellow|Customer|
+start
+:Chọn sản phẩm & Thêm vào giỏ hàng;
+:Nhấn "Tiến hành Thanh toán";
+
+|#LightCyan|Next.js UI|
+:Gửi yêu cầu khởi tạo thanh toán;
+
+|#LightGreen|NestJS API|
+if (Kiểm tra trạng thái đăng nhập?) then (Chưa đăng nhập)
+    |#LightCyan|Next.js UI|
+    :Hiển thị màn hình Đăng nhập/Đăng ký;
+    |#LightYellow|Customer|
+    :Nhập thông tin xác thực;
+    |#LightGreen|NestJS API|
+    :Xác thực người dùng & Trả JWT;
+endif
+
+|#LightGreen|NestJS API|
+:Xác thực token JWT;
+:Kiểm tra tồn kho các sản phẩm trong đơn;
+
+if (Kiểm tra số lượng tồn kho?) then (Hết hàng / Không đủ)
+    |#LightCyan|Next.js UI|
+    :Hiển thị thông báo "Sản phẩm đã hết hàng";
+    |#LightYellow|Customer|
+    :Điều chỉnh giỏ hàng;
+    stop
+else (Đủ hàng)
+    |#LightGreen|NestJS API|
+    :Khởi tạo giao dịch thanh toán;
+    |#LightCyan|Next.js UI|
+    :Hiển thị giao diện Thanh toán (Payment Gateway);
+    |#LightYellow|Customer|
+    :Nhập thông tin thanh toán & Xác nhận;
+    
+    |#LightPink|Payment Service|
+    :Xử lý giao dịch thanh toán;
+    
+    if (Kết quả thanh toán?) then (Thất bại)
+        |#LightPink|Payment Service|
+        :Báo lỗi thanh toán;
+        |#LightGreen|NestJS API|
+        :Ghi nhận giao dịch thất bại;
+        |#LightCyan|Next.js UI|
+        :Hiển thị thông báo "Thanh toán thất bại, vui lòng thử lại";
+        |#LightYellow|Customer|
+        :Chọn lại phương thức thanh toán / Hủy;
+        stop
+    else (Thành công)
+        |#LightPink|Payment Service|
+        :Trả về kết quả thành công (Transaction ID);
+        |#LightGreen|NestJS API|
+        :Tạo đơn hàng (Create Order);
+        :Cập nhật giảm tồn kho sản phẩm;
+        :Tích lũy điểm Loyalty;
+        |#LightCyan|Next.js UI|
+        :Hiển thị màn hình "Đặt hàng thành công";
+        |#LightYellow|Customer|
+        :Xem chi tiết đơn hàng;
+        stop
+    endif
+endif
+@enduml
