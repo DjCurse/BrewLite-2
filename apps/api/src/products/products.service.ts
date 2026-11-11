@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 import { ProductsController } from './products.controller';
 import { ProductsService } from './products.service';
 
@@ -27,23 +26,5 @@ describe('ProductsController', () => {
   it('GET /products/:id delegates parsed id', async () => {
     await expect(controller.findOne(1)).resolves.toEqual({ id: 1, name: 'Matcha Latte' });
     expect(service.findOne).toHaveBeenCalledWith(1);
-=======
-import { Test, TestingModule } from '@nestjs/testing';
-import { ProductsController } from './products.controller';
-
-describe('ProductsController', () => {
-  let controller: ProductsController;
-
-  beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      controllers: [ProductsController],
-    }).compile();
-
-    controller = module.get<ProductsController>(ProductsController);
-  });
-
-  it('should be defined', () => {
-    expect(controller).toBeDefined();
->>>>>>> origin/Tuan
   });
 });
