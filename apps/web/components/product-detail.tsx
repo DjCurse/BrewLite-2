@@ -21,7 +21,7 @@ interface Result {
   error?: ApiError | Error;
 }
 
-/** Chi tiết sản phẩm: chọn Size, Topping, số lượng; đủ trạng thái Loading/Not found/Error. */
+/** Chi tiết sản phẩm */
 export function ProductDetail({ id }: { id: number }) {
   const [reloadCount, setReloadCount] = useState(0);
   const [result, setResult] = useState<Result | null>(null);
@@ -94,7 +94,6 @@ function ProductOptions({ product }: { product: Product }) {
       toppings: toppingIds,
       quantity,
     };
-    // Giỏ hàng (useCartStore) lắng nghe sự kiện này để nhận lựa chọn của khách.
     window.dispatchEvent(new CustomEvent(PRODUCT_SELECTED_EVENT, { detail }));
     setAdded(true);
   }
@@ -151,7 +150,7 @@ function ProductOptions({ product }: { product: Product }) {
                 return (
                   <label
                     key={option.code}
-                    className={`flex min-h-[76px] cursor-pointer flex-col items-center justify-center rounded-2xl border-2 px-2 py-2 text-center transition has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-brand/40 ${
+                    className={`flex min-h-[76px] cursor-pointer flex-col items-center justify-center rounded-2xl border-2 px-2 py-2 text-center transition ${
                       active
                         ? "border-brand bg-brand-soft text-brand"
                         : "border-line bg-white hover:border-brand/50"
@@ -255,11 +254,6 @@ function ProductOptions({ product }: { product: Product }) {
                   ? "Đã chọn món ✓"
                   : "Thêm vào giỏ hàng"}
             </button>
-            <p className="mt-2 text-center text-xs text-muted" aria-live="polite">
-              {added
-                ? "Đã ghi nhận lựa chọn của bạn."
-                : "Giá chính thức được tính khi đặt hàng."}
-            </p>
           </div>
         </div>
       </div>
