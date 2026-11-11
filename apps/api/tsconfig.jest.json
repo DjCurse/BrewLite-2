@@ -1,0 +1,10 @@
+{
+  // Cấu hình riêng cho Jest: @nestjs/* 12 phát hành ESM-only nên test chạy ở chế độ ESM.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "declaration": false,
+    "incremental": false
+  }
+}
