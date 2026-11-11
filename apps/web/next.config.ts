@@ -7,6 +7,10 @@ const nextConfig: NextConfig = {
   },
   cacheComponents: true,
   partialPrefetching: true,
+  images: {
+    // Ảnh sản phẩm lấy từ Unsplash (xem apps/api/prisma/seed-data.ts).
+    remotePatterns: [{ protocol: "https", hostname: "images.unsplash.com" }],
+  },
   turbopack: {
     rules: {
       "*.css": {

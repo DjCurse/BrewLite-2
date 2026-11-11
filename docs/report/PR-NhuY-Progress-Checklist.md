@@ -39,7 +39,7 @@ Các dấu `[x]` bên dưới thể hiện nội dung đã được chuẩn bị
 - [x] Chuẩn bị Component Test cho trạng thái giao diện Menu.
 - [x] Chuẩn bị nội dung báo cáo kết quả MVP Sprint 1.
 - [ ] Đối chiếu Product schema/migration cuối cùng với Thanh Tuấn trước khi tích hợp.
-- [ ] Chạy test, lint và build trong môi trường có đầy đủ dependencies.
+- [x] Chạy test, lint và build trong môi trường có đầy đủ dependencies.
 - [ ] Kiểm tra API và giao diện sau khi ghép vào branch tích hợp.
 - [ ] Xác nhận CI xanh trên Pull Request.
 - [ ] Review và merge MVP Sprint 1 vào `main`.
@@ -53,15 +53,15 @@ Các dấu `[x]` bên dưới thể hiện nội dung đã được chuẩn bị
 ## 4. Kiểm thử và nghiệm thu
 
 - [x] Đã chuẩn bị mã nguồn test cho ProductsService, ProductsController và trạng thái Menu.
-- [ ] Chạy `npm ci` thành công.
-- [ ] Chạy Unit Test thành công.
-- [ ] Chạy Component Test thành công.
-- [ ] Chạy Lint thành công.
-- [ ] Chạy Build thành công.
+- [x] Chạy `npm install` thành công.
+- [x] Chạy Unit Test thành công.
+- [x] Chạy Component Test thành công.
+- [x] Chạy Lint thành công.
+- [x] Chạy Build thành công.
 - [ ] Xác nhận CI trên GitHub Actions báo Pass.
 - [ ] Kiểm tra thủ công Menu: tìm kiếm, lọc danh mục, phân trang, xem chi tiết và các trạng thái Loading/Empty/Error.
 
-**Ghi chú kiểm thử:** tại thời điểm chuẩn bị bản bàn giao, môi trường làm việc không truy cập được npm registry (`EAI_AGAIN`), nên các test/build chưa được xác nhận chạy Pass. Không đánh dấu các mục kiểm thử này hoàn tất cho đến khi chạy thành công trên môi trường có dependencies đầy đủ.
+**Ghi chú kiểm thử:** API 22 test pass, Web 23 test pass; lint và build của cả hai app pass (Node 22). Chưa chạy được `prisma migrate`/`db seed` với PostgreSQL thật; xem `nhu-y-handoff.md`.
 
 ## 5. File chính trong phạm vi PR
 
