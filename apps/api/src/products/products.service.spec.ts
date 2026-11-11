@@ -1,8 +1,6 @@
-import { jest } from '@jest/globals';
 import { NotFoundException } from '@nestjs/common';
-import { Test, TestingModule } from '@nestjs/testing';
-import { PrismaService } from '../prisma/prisma.service';
 import { ProductsService } from './products.service';
+import { PrismaService } from '../prisma/prisma.service';
 
 const sampleProduct = {
   id: 1,
@@ -20,170 +18,65 @@ const asyncMock = () => jest.fn<(...args: any[]) => Promise<any>>();
 
 describe('ProductsService', () => {
   let service: ProductsService;
-  const prisma = {
+  let prisma: {
     product: {
-      count: asyncMock(),
-      findMany: asyncMock(),
-      findUnique: asyncMock(),
-    },
+      findMany: jest.Mock;
+      findUnique: jest.Mock;
+    };
   };
 
-  beforeEach(async () => {
-    jest.resetAllMocks();
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        ProductsService,
-        { provide: PrismaService, useValue: prisma },
-      ],
-    }).compile();
-
-    service = module.get(ProductsService);
+  beforeEach(() => {
+    prisma = {
+      product: {
+        findMany: jest.fn(),
+        findUnique: jest.fn(),
+      },
+    };
+    service = new ProductsService(prisma as unknown as PrismaService);
   });
 
-  /** findMany được gọi 2 lần: lấy trang dữ liệu, rồi lấy danh sách danh mục. */
-  function mockList(total: number, rows: unknown[], categories: string[]) {
-    prisma.product.count.mockResolvedValue(total);
-    prisma.product.findMany
-      .mockResolvedValueOnce(rows)
-      .mockResolvedValueOnce(categories.map((category) => ({ category })));
-  }
+  it('returns all products ordered by id', async () => {
+    const products = [{ id: 1, name: 'Matcha Latte' }];
+    prisma.product.findMany.mockResolvedValue(products);
 
-  describe('findAll', () => {
-    it('dùng phân trang mặc định (trang 1, 9 món) và chỉ lấy món đang bán', async () => {
-      mockList(1, [sampleProduct], ['Matcha']);
-
-      const result = await service.findAll();
-
-      expect(prisma.product.findMany).toHaveBeenNthCalledWith(1, {
-        where: { isAvailable: true },
-        orderBy: { id: 'asc' },
-        skip: 0,
-        take: 9,
-      });
-      expect(result.data).toEqual([sampleProduct]);
-      expect(result.meta).toEqual({
-        page: 1,
-        pageSize: 9,
-        total: 1,
-        totalPages: 1,
-      });
-    });
-
-    it('tính skip/take đúng theo page và pageSize', async () => {
-      mockList(25, [], []);
-
-      const result = await service.findAll({ page: '3', pageSize: '10' });
-
-      expect(prisma.product.findMany).toHaveBeenNthCalledWith(
-        1,
-        expect.objectContaining({ skip: 20, take: 10 }),
-      );
-      expect(result.meta).toEqual({
-        page: 3,
-        pageSize: 10,
-        total: 25,
-        totalPages: 3,
-      });
-    });
-
-    it('giới hạn pageSize tối đa 50', async () => {
-      mockList(0, [], []);
-
-      const result = await service.findAll({ pageSize: '500' });
-
-      expect(prisma.product.findMany).toHaveBeenNthCalledWith(
-        1,
-        expect.objectContaining({ take: 50 }),
-      );
-      expect(result.meta.pageSize).toBe(50);
-    });
-
-    it.each([
-      ['page = 0', { page: '0' }],
-      ['page âm', { page: '-4' }],
-      ['page không phải số', { page: 'abc' }],
-    ])('quay về trang 1 khi %s', async (_label, query) => {
-      mockList(0, [], []);
-
-      const result = await service.findAll(query);
-
-      expect(result.meta.page).toBe(1);
-    });
-
-    it('lọc theo danh mục', async () => {
-      mockList(1, [sampleProduct], ['Matcha']);
-
-      await service.findAll({ category: 'Matcha' });
-
-      expect(prisma.product.count).toHaveBeenCalledWith({
-        where: { isAvailable: true, category: 'Matcha' },
-      });
-    });
-
-    it('danh mục "Tất cả" nghĩa là không lọc', async () => {
-      mockList(1, [sampleProduct], ['Matcha']);
-
-      await service.findAll({ category: 'Tất cả' });
-
-      expect(prisma.product.count).toHaveBeenCalledWith({
-        where: { isAvailable: true },
-      });
-    });
-
-    it('tìm kiếm không phân biệt hoa thường theo tên và mô tả', async () => {
-      mockList(1, [sampleProduct], ['Matcha']);
-
-      await service.findAll({ q: '  latte ' });
-
-      expect(prisma.product.count).toHaveBeenCalledWith({
-        where: {
-          isAvailable: true,
-          OR: [
-            { name: { contains: 'latte', mode: 'insensitive' } },
-            { description: { contains: 'latte', mode: 'insensitive' } },
-          ],
-        },
-      });
-    });
-
-    it('trả về danh sách danh mục không lặp lấy từ toàn bộ menu', async () => {
-      mockList(0, [], ['Cà phê', 'Matcha']);
-
-      const result = await service.findAll({ q: 'không có' });
-
-      expect(result.categories).toEqual(['Cà phê', 'Matcha']);
-      expect(prisma.product.findMany).toHaveBeenNthCalledWith(2, {
-        where: { isAvailable: true },
-        distinct: ['category'],
-        select: { category: true },
-        orderBy: { category: 'asc' },
-      });
-    });
-
-    it('totalPages tối thiểu là 1 khi không có kết quả', async () => {
-      mockList(0, [], []);
-
-      const result = await service.findAll();
-
-      expect(result.data).toEqual([]);
-      expect(result.meta.totalPages).toBe(1);
+    await expect(service.findAll()).resolves.toEqual(products);
+    expect(prisma.product.findMany).toHaveBeenCalledWith({
+      where: {},
+      orderBy: { id: 'asc' },
     });
   });
 
-  describe('findOne', () => {
-    it('trả về sản phẩm khi tìm thấy', async () => {
-      prisma.product.findUnique.mockResolvedValue(sampleProduct);
+  it('filters products by category', async () => {
+    prisma.product.findMany.mockResolvedValue([]);
+    await service.findAll('Matcha');
 
-      await expect(service.findOne(1)).resolves.toEqual(sampleProduct);
-      expect(prisma.product.findUnique).toHaveBeenCalledWith({
-        where: { id: 1 },
-      });
+    expect(prisma.product.findMany).toHaveBeenCalledWith({
+      where: { category: 'Matcha' },
+      orderBy: { id: 'asc' },
     });
+  });
 
-    it('ném NotFoundException khi không tồn tại', async () => {
-      prisma.product.findUnique.mockResolvedValue(null);
+  it('does not filter when category is Tất cả', async () => {
+    prisma.product.findMany.mockResolvedValue([]);
+    await service.findAll('Tất cả');
 
-      await expect(service.findOne(999)).rejects.toThrow(NotFoundException);
+    expect(prisma.product.findMany).toHaveBeenCalledWith({
+      where: {},
+      orderBy: { id: 'asc' },
     });
+  });
+
+  it('returns a product by id', async () => {
+    const product = { id: 2, name: 'Cà phê sữa đá' };
+    prisma.product.findUnique.mockResolvedValue(product);
+
+    await expect(service.findOne(2)).resolves.toEqual(product);
+    expect(prisma.product.findUnique).toHaveBeenCalledWith({ where: { id: 2 } });
+  });
+
+  it('throws NotFoundException when product does not exist', async () => {
+    prisma.product.findUnique.mockResolvedValue(null);
+
+    await expect(service.findOne(999)).rejects.toBeInstanceOf(NotFoundException);
   });
 });

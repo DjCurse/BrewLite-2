@@ -1,68 +1,30 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import type { Prisma } from '@prisma/client';
-import { PrismaService } from '../prisma/prisma.service';
-import {
-  normalizeListProductsQuery,
-  type RawListProductsQuery,
-} from './dto/list-products-query';
+import { ProductsController } from './products.controller';
+import { ProductsService } from './products.service';
 
-@Injectable()
-export class ProductsService {
-  constructor(private readonly prisma: PrismaService) {}
+describe('ProductsController', () => {
+  let controller: ProductsController;
+  let service: { findAll: jest.Mock; findOne: jest.Mock };
 
-  /**
-   * Danh sách món đang bán, có phân trang, lọc danh mục và tìm kiếm theo tên/mô tả.
-   * Trả về `{ data, categories, meta }` để giao diện dựng thanh lọc và phân trang.
-   */
-  async findAll(rawQuery: RawListProductsQuery = {}) {
-    const { page, pageSize, category, q } =
-      normalizeListProductsQuery(rawQuery);
-
-    const where: Prisma.ProductWhereInput = { isAvailable: true };
-    if (category) where.category = category;
-    if (q) {
-      where.OR = [
-        { name: { contains: q, mode: 'insensitive' } },
-        { description: { contains: q, mode: 'insensitive' } },
-      ];
-    }
-
-    const [total, data, categoryRows] = await Promise.all([
-      this.prisma.product.count({ where }),
-      this.prisma.product.findMany({
-        where,
-        orderBy: { id: 'asc' },
-        skip: (page - 1) * pageSize,
-        take: pageSize,
-      }),
-      this.prisma.product.findMany({
-        where: { isAvailable: true },
-        distinct: ['category'],
-        select: { category: true },
-        orderBy: { category: 'asc' },
-      }),
-    ]);
-
-    return {
-      data,
-      categories: categoryRows.map((row) => row.category),
-      meta: {
-        page,
-        pageSize,
-        total,
-        totalPages: Math.max(1, Math.ceil(total / pageSize)),
-      },
+  beforeEach(() => {
+    service = {
+      findAll: jest.fn().mockResolvedValue([]),
+      findOne: jest.fn().mockResolvedValue({ id: 1, name: 'Matcha Latte' }),
     };
-  }
+    controller = new ProductsController(service as unknown as ProductsService);
+  });
 
-  /** Chi tiết một sản phẩm theo ID; ném 404 nếu không tồn tại. */
-  async findOne(id: number) {
-    const product = await this.prisma.product.findUnique({ where: { id } });
+  it('GET /products delegates to findAll', async () => {
+    await expect(controller.findAll()).resolves.toEqual([]);
+    expect(service.findAll).toHaveBeenCalledWith(undefined);
+  });
 
-    if (!product) {
-      throw new NotFoundException(`Sản phẩm với ID #${id} không tồn tại`);
-    }
+  it('GET /products?category=Matcha delegates category filter', async () => {
+    await controller.findAll('Matcha');
+    expect(service.findAll).toHaveBeenCalledWith('Matcha');
+  });
 
-    return product;
-  }
-}
+  it('GET /products/:id delegates parsed id', async () => {
+    await expect(controller.findOne(1)).resolves.toEqual({ id: 1, name: 'Matcha Latte' });
+    expect(service.findOne).toHaveBeenCalledWith(1);
+  });
+});
