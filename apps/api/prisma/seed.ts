@@ -1,8 +1,36 @@
 import { PrismaClient } from '@prisma/client';
+import { seedProducts } from './seed-data';
 
-const prisma = new PrismaClient({
-  datasourceUrl: process.env.DATABASE_URL,
-});
+type SeedClient = Pick<PrismaClient, 'product'>;
+
+/**
+ * Nạp menu mẫu. Chạy lặp lại an toàn: sản phẩm đã có (cùng name + category)
+ * được cập nhật, sản phẩm chưa có được tạo mới — không bao giờ tạo trùng.
+ */
+export async function seedMenu(prisma: SeedClient) {
+  let created = 0;
+  let updated = 0;
+
+  for (const product of seedProducts) {
+    const existing = await prisma.product.findFirst({
+      where: { name: product.name, category: product.category },
+      select: { id: true },
+    });
+
+    if (existing) {
+      await prisma.product.update({
+        where: { id: existing.id },
+        data: product,
+      });
+      updated += 1;
+    } else {
+      await prisma.product.create({ data: product });
+      created += 1;
+    }
+  }
+
+  return { created, updated };
+}
 
 const products = [
   { id: 1, name: 'Trà sữa trân châu', category: 'Trà sữa', price: 39000, stock: 25, imageUrl: 'https://images.unsplash.com/photo-1558857563-b371033873b8?auto=format&fit=crop&w=800&q=85', description: 'Trà thơm, sữa béo, trân châu dẻo' },

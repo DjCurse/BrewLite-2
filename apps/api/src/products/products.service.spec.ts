@@ -2,6 +2,20 @@ import { NotFoundException } from '@nestjs/common';
 import { ProductsService } from './products.service';
 import { PrismaService } from '../prisma/prisma.service';
 
+const sampleProduct = {
+  id: 1,
+  name: 'Matcha Latte',
+  category: 'Matcha',
+  description: 'Matcha Nhật Bản, sữa tươi dịu béo',
+  price: 45000,
+  imageUrl: null,
+  stock: 20,
+  isAvailable: true,
+  createdAt: new Date('2026-11-01T00:00:00Z'),
+};
+
+const asyncMock = () => jest.fn<(...args: any[]) => Promise<any>>();
+
 describe('ProductsService', () => {
   let service: ProductsService;
   let prisma: {

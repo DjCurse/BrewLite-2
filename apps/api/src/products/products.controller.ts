@@ -1,17 +1,20 @@
 import { Controller, Get, Param, ParseIntPipe, Query } from '@nestjs/common';
+import type { RawListProductsQuery } from './dto/list-products-query';
 import { ProductsService } from './products.service';
 
 @Controller('products')
 export class ProductsController {
   constructor(private readonly productsService: ProductsService) {}
 
+  /** GET /products?page=1&pageSize=9&category=Matcha&q=latte */
   @Get()
-  async findAll(@Query('category') category?: string) {
-    return this.productsService.findAll(category);
+  findAll(@Query() query: RawListProductsQuery) {
+    return this.productsService.findAll(query);
   }
 
+  /** GET /products/:id */
   @Get(':id')
-  async findOne(@Param('id', ParseIntPipe) id: number) {
+  findOne(@Param('id', ParseIntPipe) id: number) {
     return this.productsService.findOne(id);
   }
 }
