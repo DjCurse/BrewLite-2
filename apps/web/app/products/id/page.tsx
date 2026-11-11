@@ -3,11 +3,11 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { formatPrice, getProduct } from '@/lib/products';
 
-export const dynamic = 'force-dynamic';
+// export const dynamic = 'force-dynamic';
 
 export default async function ProductDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  if (!/^\\d+$/.test(id)) notFound();
+  if (!/^\d+$/.test(id)) notFound();
 
   let product;
   try {

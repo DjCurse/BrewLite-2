@@ -2,7 +2,11 @@ import { Suspense } from "react";
 import { ProductDetail, ProductDetailLoading } from "@/components/product-detail";
 import { SiteFooter, SiteHeader } from "@/components/site-header";
 
-export default function ProductPage({ params }: PageProps<"/products/[id]">) {
+interface ProductPageProps {
+  params: Promise<{ id: string }>;
+}
+
+export default async function ProductPage({ params }: ProductPageProps) {
   return (
     <>
       <SiteHeader />
@@ -16,7 +20,7 @@ export default function ProductPage({ params }: PageProps<"/products/[id]">) {
   );
 }
 
-async function ProductContent({ params }: { params: PageProps<"/products/[id]">["params"] }) {
+async function ProductContent({ params }: ProductPageProps) {
   const { id } = await params;
   return <ProductDetail id={Number(id)} />;
 }
