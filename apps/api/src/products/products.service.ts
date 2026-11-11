@@ -1,28 +1,49 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaClient } from '@prisma/client';
+<<<<<<< HEAD
+import { ProductsController } from './products.controller';
+import { ProductsService } from './products.service';
 
-const prisma = new PrismaClient();
+describe('ProductsController', () => {
+  let controller: ProductsController;
+  let service: { findAll: jest.Mock; findOne: jest.Mock };
 
-@Injectable()
-export class ProductsService {
-  // 1. Lấy danh sách sản phẩm (có hỗ trợ lọc theo danh mục)
-  async findAll(category?: string) {
-    return prisma.product.findMany({
-      where: category && category !== 'Tất cả' ? { category } : {},
-      orderBy: { id: 'asc' },
-    });
-  }
+  beforeEach(() => {
+    service = {
+      findAll: jest.fn().mockResolvedValue([]),
+      findOne: jest.fn().mockResolvedValue({ id: 1, name: 'Matcha Latte' }),
+    };
+    controller = new ProductsController(service as unknown as ProductsService);
+  });
 
-  // 2. Lấy chi tiết một sản phẩm theo ID
-  async findOne(id: number) {
-    const product = await prisma.product.findUnique({
-      where: { id },
-    });
+  it('GET /products delegates to findAll', async () => {
+    await expect(controller.findAll()).resolves.toEqual([]);
+    expect(service.findAll).toHaveBeenCalledWith(undefined);
+  });
 
-    if (!product) {
-      throw new NotFoundException(`Sản phẩm với ID #${id} không tồn tại`);
-    }
+  it('GET /products?category=Matcha delegates category filter', async () => {
+    await controller.findAll('Matcha');
+    expect(service.findAll).toHaveBeenCalledWith('Matcha');
+  });
 
-    return product;
-  }
-}
+  it('GET /products/:id delegates parsed id', async () => {
+    await expect(controller.findOne(1)).resolves.toEqual({ id: 1, name: 'Matcha Latte' });
+    expect(service.findOne).toHaveBeenCalledWith(1);
+=======
+import { Test, TestingModule } from '@nestjs/testing';
+import { ProductsController } from './products.controller';
+
+describe('ProductsController', () => {
+  let controller: ProductsController;
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      controllers: [ProductsController],
+    }).compile();
+
+    controller = module.get<ProductsController>(ProductsController);
+  });
+
+  it('should be defined', () => {
+    expect(controller).toBeDefined();
+>>>>>>> origin/Tuan
+  });
+});
