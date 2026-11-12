@@ -7,14 +7,107 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model User {
+  id                  Int                  @id @default(autoincrement())
+  email               String               @unique
+  password            String
+  name                String
+  loyaltyPoints       Int                  @default(0)
+  createdAt           DateTime             @default(now())
+  orders              Order[]
+  loyaltyTransactions LoyaltyTransaction[]
+}
+
 model Product {
-  id          Int      @id @default(autoincrement())
+  id          Int         @id @default(autoincrement())
   name        String
   category    String
   description String?
   price       Int
   imageUrl    String?
   stock       Int
-  isAvailable Boolean  @default(true)
-  createdAt   DateTime @default(now())
+  isAvailable Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  orderItems  OrderItem[]
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  PAYMENT_FAILED
+  PREPARING
+  READY
+  COMPLETED
+}
+
+model Order {
+  id          Int         @id @default(autoincrement())
+  userId      Int?
+  user        User?       @relation(fields: [userId], references: [id])
+  totalAmount Int
+  status      OrderStatus @default(PENDING)
+  promotionId Int?
+  promotion   Promotion?  @relation(fields: [promotionId], references: [id])
+  createdAt   DateTime    @default(now())
+  orderItems  OrderItem[]
+  payment     Payment?
+}
+
+model OrderItem {
+  id        Int     @id @default(autoincrement())
+  orderId   Int
+  order     Order   @relation(fields: [orderId], references: [id])
+  productId Int
+  product   Product @relation(fields: [productId], references: [id])
+  quantity  Int
+  price     Int
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+  E_WALLET
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+model Payment {
+  id             Int           @id @default(autoincrement())
+  orderId        Int           @unique
+  order          Order         @relation(fields: [orderId], references: [id])
+  amount         Int
+  method         PaymentMethod
+  status         PaymentStatus @default(PENDING)
+  idempotencyKey String        @unique
+  createdAt      DateTime      @default(now())
+}
+
+model Promotion {
+  id              Int      @id @default(autoincrement())
+  code            String   @unique
+  discountPercent Int
+  maxDiscount     Int
+  usageLimit      Int
+  validUntil      DateTime
+  createdAt       DateTime @default(now())
+  orders          Order[]
+}
+
+enum LoyaltyTransactionType {
+  EARN
+  REDEEM
+}
+
+model LoyaltyTransaction {
+  id          Int                    @id @default(autoincrement())
+  userId      Int
+  user        User                   @relation(fields: [userId], references: [id])
+  points      Int
+  type        LoyaltyTransactionType
+  description String
+  createdAt   DateTime               @default(now())
 }
