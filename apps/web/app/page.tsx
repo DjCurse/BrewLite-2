@@ -15,7 +15,7 @@ export default async function HomePage() {
           <span className="eyebrow">BREWLITE MENU</span>
           <h1>Không thể kết nối máy chủ</h1>
           <p>Vui lòng kiểm tra API NestJS và cơ sở dữ liệu PostgreSQL, sau đó tải lại trang.</p>
-          <a className="button" href="/">Thử lại</a>
+          <Link className="button" href="/">Thử lại</Link>
         </div>
       </main>
     );

@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { FormEvent, useState } from "react";
+import Link from "next/link";
 
 type UserProfile = {
   name: string;
@@ -138,10 +139,10 @@ export default function Home() {
   return (
     <main className="auth-shell">
       <header className="site-header">
-        <a className="brand" href="/" aria-label="BrewLite trang chủ">
+        <Link className="brand" href="/" aria-label="BrewLite trang chủ">
           <span className="brand-mark" aria-hidden="true">B</span>
           <span>BrewLite</span>
-        </a>
+        </Link>
         <span className="nav-note">FRESHLY BREWED · DAILY</span>
       </header>
       <section className="auth-visual" aria-label="BrewLite">
