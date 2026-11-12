@@ -22,7 +22,7 @@ export class CreatePaymentDto {
   @IsNotEmpty()
   paymentMethod: 'CASH' | 'CARD' | 'E_WALLET';
 
-  @IsNumber()
+  @IsString()
   @IsOptional()
-  userId?: number; // Dành cho luồng khách đã đăng nhập để tích điểm
+  userId?: string; // Dành cho luồng khách đã đăng nhập để tích điểm
 }
