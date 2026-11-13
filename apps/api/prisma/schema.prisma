@@ -8,10 +8,11 @@ datasource db {
 }
 
 model User {
-  id                  Int                  @id @default(autoincrement())
+  id                  String               @id @default(cuid())
   email               String               @unique
-  password            String
+  passwordHash        String
   name                String
+  role                String               @default("CUSTOMER")
   loyaltyPoints       Int                  @default(0)
   createdAt           DateTime             @default(now())
   orders              Order[]
@@ -42,7 +43,7 @@ enum OrderStatus {
 
 model Order {
   id          Int         @id @default(autoincrement())
-  userId      Int?
+  userId      String?
   user        User?       @relation(fields: [userId], references: [id])
   totalAmount Int
   status      OrderStatus @default(PENDING)
@@ -104,7 +105,7 @@ enum LoyaltyTransactionType {
 
 model LoyaltyTransaction {
   id          Int                    @id @default(autoincrement())
-  userId      Int
+  userId      String
   user        User                   @relation(fields: [userId], references: [id])
   points      Int
   type        LoyaltyTransactionType
