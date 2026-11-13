@@ -51,9 +51,8 @@ export function totalPrice(selection: Selection): number {
   return unitPrice(selection) * selection.quantity;
 }
 
-/** Payload của sự kiện `brewlite:product-selected` để Giỏ hàng (useCartStore) lắng nghe. */
 export interface ProductSelectedDetail {
-  productId: number;
+  productId: string | number;
   productName: string;
   size: SizeCode;
   toppings: string[];

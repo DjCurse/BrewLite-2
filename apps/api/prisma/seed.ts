@@ -39,12 +39,6 @@ async function main() {
 
   try {
     const { created, updated } = await seedMenu(prisma);
-    
-    // Đồng bộ lại PostgreSQL SERIAL sequence
-    await prisma.$executeRawUnsafe(
-      `SELECT setval(pg_get_serial_sequence('"Product"', 'id'), COALESCE((SELECT MAX(id) FROM "Product"), 1))`
-    );
-
     console.log(`Seed menu xong: tạo mới ${created}, cập nhật ${updated}.`);
   } finally {
     await prisma.$disconnect();

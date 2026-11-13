@@ -1,8 +1,20 @@
-import { IsArray, IsNotEmpty, IsNumber, IsOptional, IsString, Min } from 'class-validator';
+import { Type } from 'class-transformer';
+import {
+  IsArray,
+  IsEnum,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Min,
+  ValidateNested,
+} from 'class-validator';
+import { PaymentMethod } from '@prisma/client';
 
 export class OrderItemDto {
-  @IsNumber()
-  productId: number;
+  @IsString()
+  @IsNotEmpty()
+  productId: string;
 
   @IsNumber()
   @Min(1)
@@ -10,19 +22,20 @@ export class OrderItemDto {
 }
 
 export class CreatePaymentDto {
+  @IsString()
+  @IsNotEmpty()
+  userId: string;
+
   @IsArray()
   @IsNotEmpty()
+  @ValidateNested({ each: true })
+  @Type(() => OrderItemDto)
   items: OrderItemDto[];
 
   @IsString()
   @IsOptional()
   promoCode?: string;
 
-  @IsString()
-  @IsNotEmpty()
-  paymentMethod: 'CASH' | 'CARD' | 'E_WALLET';
-
-  @IsString()
-  @IsOptional()
-  userId?: string; // Dành cho luồng khách đã đăng nhập để tích điểm
+  @IsEnum(PaymentMethod)
+  paymentMethod: PaymentMethod; 
 }

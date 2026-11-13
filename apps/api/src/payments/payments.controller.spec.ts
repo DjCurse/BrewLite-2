@@ -1,8 +1,9 @@
 import { jest } from '@jest/globals';
+import { BadRequestException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import { PaymentMethod } from '@prisma/client';
 import { PaymentsController } from './payments.controller';
 import { PaymentsService } from './payments.service';
-import { BadRequestException } from '@nestjs/common';
 
 const asyncMock = () => jest.fn<(...args: any[]) => Promise<any>>();
 
@@ -23,18 +24,28 @@ describe('PaymentsController', () => {
   });
 
   it('nên throw lỗi nếu thiếu idempotency-key', async () => {
-    await expect(controller.checkout('', { items: [], paymentMethod: 'CASH' }))
-      .rejects.toThrow(BadRequestException);
+    await expect(
+      controller.checkout('', {
+        userId: 'user-1',
+        items: [],
+        paymentMethod: PaymentMethod.MOMO,
+      }),
+    ).rejects.toThrow(BadRequestException);
   });
 
   it('nên gọi service.processPayment nếu có idempotency-key', async () => {
-    const payload = { id: 1 };
-    service.processPayment.mockResolvedValue(payload);
-    const dto = { items: [{ productId: 1, quantity: 1 }], paymentMethod: 'CASH' as const };
-    
-    const result = await controller.checkout('test-key', dto);
-    
-    expect(result).toEqual(payload);
-    expect(service.processPayment).toHaveBeenCalledWith('test-key', dto);
+    const mockOrder = { id: 'ord-1', status: 'PAID' };
+    service.processPayment.mockResolvedValue(mockOrder);
+
+    const dto = {
+      userId: 'user-1',
+      items: [{ productId: 'prod-1', quantity: 2 }],
+      paymentMethod: PaymentMethod.MOMO,
+    };
+
+    const result = await controller.checkout('idem-key-001', dto);
+
+    expect(result).toEqual(mockOrder);
+    expect(service.processPayment).toHaveBeenCalledWith('idem-key-001', dto);
   });
 });

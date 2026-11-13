@@ -7,7 +7,7 @@ import { formatPrice, getProduct } from '@/lib/products';
 
 export default async function ProductDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  if (!/^\d+$/.test(id)) notFound();
+  if (!id || !id.trim()) notFound();
 
   let product;
   try {

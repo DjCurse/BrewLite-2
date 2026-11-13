@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import type { Prisma } from '@prisma/client';
+import type { Prisma, Product } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   normalizeListProductsQuery,
@@ -10,6 +10,13 @@ import {
 export class ProductsService {
   constructor(private readonly prisma: PrismaService) {}
 
+  private serializeProduct(product: Product) {
+    return {
+      ...product,
+      price: Number(product.price),
+    };
+  }
+
   /**
    * Danh sách món đang bán, có phân trang, lọc danh mục và tìm kiếm theo tên/mô tả.
    */
@@ -17,7 +24,7 @@ export class ProductsService {
     const { page, pageSize, category, q } =
       normalizeListProductsQuery(rawQuery);
 
-    const where: Prisma.ProductWhereInput = { isAvailable: true };
+    const where: Prisma.ProductWhereInput = { isActive: true };
     if (category) where.category = category;
     if (q) {
       where.OR = [
@@ -26,7 +33,7 @@ export class ProductsService {
       ];
     }
 
-    const [total, data, categoryRows] = await Promise.all([
+    const [total, rows, categoryRows] = await Promise.all([
       this.prisma.product.count({ where }),
       this.prisma.product.findMany({
         where,
@@ -35,7 +42,7 @@ export class ProductsService {
         take: pageSize,
       }),
       this.prisma.product.findMany({
-        where: { isAvailable: true },
+        where: { isActive: true, category: { not: null } },
         distinct: ['category'],
         select: { category: true },
         orderBy: { category: 'asc' },
@@ -43,8 +50,10 @@ export class ProductsService {
     ]);
 
     return {
-      data,
-      categories: categoryRows.map((row) => row.category),
+      data: rows.map((row) => this.serializeProduct(row)),
+      categories: categoryRows
+        .map((row) => row.category)
+        .filter((cat): cat is string => Boolean(cat)),
       meta: {
         page,
         pageSize,
@@ -55,13 +64,13 @@ export class ProductsService {
   }
 
   /** Chi tiết một sản phẩm theo ID; ném 404 nếu không tồn tại. */
-  async findOne(id: number) {
+  async findOne(id: string) {
     const product = await this.prisma.product.findUnique({ where: { id } });
 
     if (!product) {
       throw new NotFoundException(`Sản phẩm với ID #${id} không tồn tại`);
     }
 
-    return product;
+    return this.serializeProduct(product);
   }
 }

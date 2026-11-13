@@ -1,12 +1,14 @@
 export type Product = {
-  id: number;
+  id: string | number;
   name: string;
-  category: string;
+  category: string | null;
   description: string | null;
   price: number;
   imageUrl: string | null;
   stock: number;
   isAvailable: boolean;
+  stockQuantity?: number;
+  isActive?: boolean;
   createdAt: string;
 };
 
@@ -22,7 +24,10 @@ export type ProductListResponse = {
 };
 
 export class ApiError extends Error {
-  constructor(public status: number, message: string) {
+  constructor(
+    public status: number,
+    message: string,
+  ) {
     super(message);
     this.name = "ApiError";
   }
@@ -33,42 +38,75 @@ export const PAGE_SIZE = 9;
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
-/** Hàm build query string - Đã tách riêng ra để test có thể import được */
-export function buildProductsQuery(query: { page?: number; pageSize?: number; category?: string; q?: string } = {}) {
+function normalizeProduct(raw: Product): Product {
+  return {
+    ...raw,
+    stock: raw.stock ?? raw.stockQuantity ?? 0,
+    isAvailable: raw.isAvailable ?? raw.isActive ?? true,
+  };
+}
+
+/** Tạo query string cho GET /products (trả về chuỗi, bỏ page=1 và 'Tất cả') */
+export function buildProductsQuery(
+  query: { page?: number; pageSize?: number; category?: string; q?: string } = {},
+): string {
   const params = new URLSearchParams();
-  if (query.page) params.set("page", String(query.page));
-  if (query.pageSize) params.set("pageSize", String(query.pageSize));
+  params.set("pageSize", String(query.pageSize ?? PAGE_SIZE));
+
+  if (query.page && query.page > 1) {
+    params.set("page", String(query.page));
+  }
   if (query.category && query.category !== ALL_CATEGORIES) {
     params.set("category", query.category);
   }
-  if (query.q) params.set("q", query.q);
-  
-  return params;
+  const trimmedQ = query.q?.trim();
+  if (trimmedQ) {
+    params.set("q", trimmedQ);
+  }
+
+  return params.toString();
 }
 
-/** Lấy danh sách sản phẩm có hỗ trợ phân trang, lọc danh mục và tìm kiếm */
-export async function fetchProducts(
-  query: { page?: number; pageSize?: number; category?: string; q?: string } = {},
-  signal?: AbortSignal
-): Promise<ProductListResponse> {
-  const params = buildProductsQuery(query); // Tái sử dụng hàm buildProductsQuery ở đây
-  
-  const url = `${API_URL}/products${params.toString() ? `?${params.toString()}` : ""}`;
-  const response = await fetch(url, { cache: "no-store", signal });
+async function requestJson<T>(url: string, signal?: AbortSignal): Promise<T> {
+  let response: Response;
+  try {
+    response = await fetch(url, { cache: "no-store", signal });
+  } catch (error) {
+    if (signal?.aborted || (error instanceof Error && error.name === "AbortError")) {
+      throw error;
+    }
+    throw new Error("Không kết nối được máy chủ");
+  }
 
   if (!response.ok) {
-    throw new ApiError(response.status, `Không thể tải danh sách sản phẩm (${response.status})`);
+    throw new ApiError(response.status, `Máy chủ trả về lỗi ${response.status}`);
   }
+
   return response.json();
+}
+
+/** Lấy danh sách sản phẩm có phân trang, lọc danh mục và tìm kiếm */
+export async function fetchProducts(
+  query: { page?: number; pageSize?: number; category?: string; q?: string } = {},
+  signal?: AbortSignal,
+): Promise<ProductListResponse> {
+  const qs = buildProductsQuery(query);
+  const url = `${API_URL}/products${qs ? `?${qs}` : ""}`;
+  const result = await requestJson<ProductListResponse>(url, signal);
+
+  return {
+    ...result,
+    data: result.data.map(normalizeProduct),
+  };
 }
 
 /** Lấy chi tiết một sản phẩm theo ID */
-export async function fetchProduct(id: number | string, signal?: AbortSignal): Promise<Product> {
-  const response = await fetch(`${API_URL}/products/${id}`, { cache: "no-store", signal });
-  if (!response.ok) {
-    throw new ApiError(response.status, `Không thể tải sản phẩm (${response.status})`);
-  }
-  return response.json();
+export async function fetchProduct(
+  id: string | number,
+  signal?: AbortSignal,
+): Promise<Product> {
+  const product = await requestJson<Product>(`${API_URL}/products/${id}`, signal);
+  return normalizeProduct(product);
 }
 
 /** Tương thích ngược với các trang cũ */
@@ -86,10 +124,6 @@ export async function getProduct(id: string | number): Promise<Product | null> {
   }
 }
 
-export function formatPrice(price: number) {
-  return new Intl.NumberFormat("vi-VN", {
-    style: "currency",
-    currency: "VND",
-    maximumFractionDigits: 0,
-  }).format(price);
+export function formatPrice(price: number): string {
+  return `${new Intl.NumberFormat("vi-VN").format(price)}đ`;
 }

@@ -1,4 +1,6 @@
-import { BadRequestException, ConflictException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
+import { LoyaltyType, OrderStatus, PaymentStatus, PromotionType } from '@prisma/client';
+import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import type { CreatePaymentDto } from './dto/create-payment.dto';
 
@@ -7,100 +9,133 @@ export class PaymentsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async processPayment(idempotencyKey: string, dto: CreatePaymentDto) {
-    // 1. KIỂM TRA IDEMPOTENCY-KEY: Trống thanh toán đúp
-    const existingPayment = await this.prisma.payment.findUnique({
+    // 1. KIỂM TRA IDEMPOTENCY-KEY TRÊN BẢNG ORDER (Theo class-diagram.puml)
+    const existingOrder = await this.prisma.order.findUnique({
       where: { idempotencyKey },
-      include: { order: true },
+      include: { items: true, payment: true },
     });
 
-    if (existingPayment) {
-      // Nếu đã từng có request với key này, trả về kết quả cũ ngay lập tức (Idempotent)
-      return existingPayment.order;
+    if (existingOrder) {
+      return existingOrder;
     }
 
-    // 2. BẮT ĐẦU TRANSACTION CƠ SỞ DỮ LIỆU
+    // 2. XỬ LÝ TRANSACTION (Theo sequence-checkout.puml)
     return this.prisma.$transaction(async (tx) => {
-      let subTotal = 0;
+      let totalAmount = 0;
+      const orderItemsData: {
+        productId: string;
+        quantity: number;
+        unitPrice: number;
+        totalPrice: number;
+      }[] = [];
 
-      // a. Kiểm tra tồn kho và tính tổng tiền
+      // a. Kiểm tra tồn kho (stockQuantity) & tính tổng tiền
       for (const item of dto.items) {
         const product = await tx.product.findUnique({ where: { id: item.productId } });
-        if (!product || !product.isAvailable || product.stock < item.quantity) {
-          throw new BadRequestException(`Sản phẩm #${item.productId} không đủ số lượng hoặc đã hết hàng.`);
+        if (!product || !product.isActive || product.stockQuantity < item.quantity) {
+          throw new BadRequestException(
+            `Sản phẩm #${item.productId} không đủ số lượng hoặc đã ngừng bán.`,
+          );
         }
-        
+
+        const unitPrice = Number(product.price);
+        const lineTotal = unitPrice * item.quantity;
+        totalAmount += lineTotal;
+
+        orderItemsData.push({
+          productId: product.id,
+          quantity: item.quantity,
+          unitPrice,
+          totalPrice: lineTotal,
+        });
+
         // Trừ tồn kho
         await tx.product.update({
           where: { id: product.id },
-          data: { stock: product.stock - item.quantity },
+          data: { stockQuantity: product.stockQuantity - item.quantity },
         });
-
-        subTotal += product.price * item.quantity;
       }
 
+      // b. Kiểm tra & áp dụng Promotion (PERCENTAGE / FIXED_AMOUNT)
       let discountAmount = 0;
-      let appliedPromotionId = null;
+      let appliedPromotionId: string | null = null;
 
-      // b. Xử lý Mã Khuyến Mãi (Promotion)
       if (dto.promoCode) {
+        const now = new Date();
         const promotion = await tx.promotion.findUnique({ where: { code: dto.promoCode } });
-        if (!promotion || promotion.validUntil < new Date() || promotion.usageLimit <= 0) {
+
+        if (
+          !promotion ||
+          !promotion.isActive ||
+          now < promotion.startDate ||
+          now > promotion.endDate
+        ) {
           throw new BadRequestException('Mã giảm giá không hợp lệ hoặc đã hết hạn.');
         }
 
-        discountAmount = Math.min((subTotal * promotion.discountPercent) / 100, promotion.maxDiscount);
-        appliedPromotionId = promotion.id;
+        if (totalAmount < Number(promotion.minOrderValue)) {
+          throw new BadRequestException(
+            `Đơn hàng tối thiểu ${Number(promotion.minOrderValue).toLocaleString('vi-VN')}đ để áp dụng mã này.`,
+          );
+        }
 
-        // Giảm số lượt dùng của mã
-        await tx.promotion.update({
-          where: { id: promotion.id },
-          data: { usageLimit: promotion.usageLimit - 1 },
-        });
+        const promoValue = Number(promotion.value);
+        discountAmount =
+          promotion.type === PromotionType.PERCENTAGE
+            ? Math.floor((totalAmount * promoValue) / 100)
+            : promoValue;
+
+        discountAmount = Math.min(discountAmount, totalAmount);
+        appliedPromotionId = promotion.id;
       }
 
-      const finalTotal = subTotal - discountAmount;
+      const finalAmount = totalAmount - discountAmount;
 
-      // c. Tạo Đơn hàng (Order) & OrderItem
+      // c. Tạo Order (PAID) + OrderItems + Payment (SUCCESS)
       const order = await tx.order.create({
         data: {
-          userId: dto.userId || null,
-          totalAmount: finalTotal,
-          status: 'PENDING',
+          userId: dto.userId,
           promotionId: appliedPromotionId,
-          orderItems: {
-            create: dto.items.map(item => ({
-              productId: item.productId,
-              quantity: item.quantity,
-              price: 0, // Bạn có thể lưu giá snapshot tại thời điểm mua ở đây
-            })),
+          totalAmount,
+          discountAmount,
+          finalAmount,
+          status: OrderStatus.PAID,
+          idempotencyKey,
+          items: {
+            create: orderItemsData,
+          },
+          payment: {
+            create: {
+              transactionId: `TXN-${randomUUID()}`,
+              method: dto.paymentMethod,
+              status: PaymentStatus.SUCCESS,
+              amount: finalAmount,
+              paidAt: new Date(),
+            },
           },
         },
-      });
-
-      // d. Lưu trạng thái Thanh Toán (Payment) gắn với Idempotency-Key
-      await tx.payment.create({
-        data: {
-          orderId: order.id,
-          amount: finalTotal,
-          method: dto.paymentMethod,
-          status: 'COMPLETED', // Giả định thanh toán thành công ngay
-          idempotencyKey, // Lưu lại key để block các request trùng lặp sau này
+        include: {
+          items: true,
+          payment: true,
         },
       });
 
-      // e. Tích điểm LoyaltyTransaction (nếu là user đã đăng nhập)
-      if (dto.userId) {
-        const pointsEarned = Math.floor(finalTotal / 10000); // 10k = 1 điểm
-        if (pointsEarned > 0) {
-          await tx.loyaltyTransaction.create({
-            data: {
-              userId: dto.userId,
-              points: pointsEarned,
-              type: 'EARN',
-              description: `Tích điểm đơn hàng #${order.id}`,
-            },
-          });
-        }
+      // d. Tích lũy điểm LoyaltyTransaction & cộng điểm vào User (10.000đ = 1 điểm)
+      const pointsEarned = Math.floor(finalAmount / 10000);
+      if (pointsEarned > 0) {
+        await tx.loyaltyTransaction.create({
+          data: {
+            userId: dto.userId,
+            orderId: order.id,
+            points: pointsEarned,
+            type: LoyaltyType.EARN,
+          },
+        });
+
+        await tx.user.update({
+          where: { id: dto.userId },
+          data: { loyaltyPoints: { increment: pointsEarned } },
+        });
       }
 
       return order;
