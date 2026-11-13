@@ -29,11 +29,11 @@ describe('ProductsController', () => {
     expect(service.findAll).toHaveBeenCalledWith(query);
   });
 
-  it('GET /products/:id chuyển id đã parse xuống service', async () => {
-    const product = { id: 7, name: 'Cà phê sữa đá' };
+  it('GET /products/:id chuyển id xuống service', async () => {
+    const product = { id: 'prod-7', name: 'Cà phê sữa đá' };
     service.findOne.mockResolvedValue(product);
 
-    await expect(controller.findOne(7)).resolves.toBe(product);
-    expect(service.findOne).toHaveBeenCalledWith(7);
+    await expect(controller.findOne('prod-7')).resolves.toBe(product);
+    expect(service.findOne).toHaveBeenCalledWith('prod-7');
   });
 });

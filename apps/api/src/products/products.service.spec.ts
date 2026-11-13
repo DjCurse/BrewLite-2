@@ -5,14 +5,14 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ProductsService } from './products.service';
 
 const sampleProduct = {
-  id: 1,
+  id: 'prod-1',
   name: 'Matcha Latte',
   category: 'Matcha',
   description: 'Matcha Nhật Bản, sữa tươi dịu béo',
   price: 45000,
   imageUrl: null,
-  stock: 20,
-  isAvailable: true,
+  stockQuantity: 20,
+  isActive: true,
   createdAt: new Date('2026-11-01T00:00:00Z'),
 };
 
@@ -55,7 +55,7 @@ describe('ProductsService', () => {
       const result = await service.findAll();
 
       expect(prisma.product.findMany).toHaveBeenNthCalledWith(1, {
-        where: { isAvailable: true },
+        where: { isActive: true },
         orderBy: { id: 'asc' },
         skip: 0,
         take: 9,
@@ -116,7 +116,7 @@ describe('ProductsService', () => {
       await service.findAll({ category: 'Matcha' });
 
       expect(prisma.product.count).toHaveBeenCalledWith({
-        where: { isAvailable: true, category: 'Matcha' },
+        where: { isActive: true, category: 'Matcha' },
       });
     });
 
@@ -126,18 +126,18 @@ describe('ProductsService', () => {
       await service.findAll({ category: 'Tất cả' });
 
       expect(prisma.product.count).toHaveBeenCalledWith({
-        where: { isAvailable: true },
+        where: { isActive: true },
       });
     });
 
     it('tìm kiếm không phân biệt hoa thường theo tên và mô tả', async () => {
       mockList(1, [sampleProduct], ['Matcha']);
 
-      await service.findAll({ q: '  latte ' });
+      await service.findAll({ q: '   latte ' });
 
       expect(prisma.product.count).toHaveBeenCalledWith({
         where: {
-          isAvailable: true,
+          isActive: true,
           OR: [
             { name: { contains: 'latte', mode: 'insensitive' } },
             { description: { contains: 'latte', mode: 'insensitive' } },
@@ -153,7 +153,7 @@ describe('ProductsService', () => {
 
       expect(result.categories).toEqual(['Cà phê', 'Matcha']);
       expect(prisma.product.findMany).toHaveBeenNthCalledWith(2, {
-        where: { isAvailable: true },
+        where: { isActive: true, category: { not: null } },
         distinct: ['category'],
         select: { category: true },
         orderBy: { category: 'asc' },
@@ -174,16 +174,18 @@ describe('ProductsService', () => {
     it('trả về sản phẩm khi tìm thấy', async () => {
       prisma.product.findUnique.mockResolvedValue(sampleProduct);
 
-      await expect(service.findOne(1)).resolves.toEqual(sampleProduct);
+      await expect(service.findOne('prod-1')).resolves.toEqual(sampleProduct);
       expect(prisma.product.findUnique).toHaveBeenCalledWith({
-        where: { id: 1 },
+        where: { id: 'prod-1' },
       });
     });
 
     it('ném NotFoundException khi không tồn tại', async () => {
       prisma.product.findUnique.mockResolvedValue(null);
 
-      await expect(service.findOne(999)).rejects.toThrow(NotFoundException);
+      await expect(service.findOne('non-existent')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 });

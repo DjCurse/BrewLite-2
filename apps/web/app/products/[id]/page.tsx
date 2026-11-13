@@ -22,5 +22,5 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
 async function ProductContent({ params }: ProductPageProps) {
   const { id } = await params;
-  return <ProductDetail id={Number(id)} />;
+  return <ProductDetail id={id} />;
 }

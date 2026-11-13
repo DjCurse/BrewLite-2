@@ -22,12 +22,19 @@ interface Result {
 }
 
 /** Chi tiết sản phẩm */
-export function ProductDetail({ id }: { id: number }) {
+export function ProductDetail({ id }: { id: string | number }) {
   const [reloadCount, setReloadCount] = useState(0);
   const [result, setResult] = useState<Result | null>(null);
   const requestKey = `${id}|${reloadCount}`;
 
+  const isValidId =
+    typeof id === "number"
+      ? Number.isInteger(id) && id >= 1
+      : typeof id === "string" && id.trim().length > 0 && id !== "NaN";
+
   useEffect(() => {
+    if (!isValidId) return;
+
     const controller = new AbortController();
 
     fetchProduct(id, controller.signal)
@@ -41,11 +48,11 @@ export function ProductDetail({ id }: { id: number }) {
       });
 
     return () => controller.abort();
-  }, [id, requestKey]);
+  }, [id, isValidId, requestKey]);
 
   const current = result?.key === requestKey ? result : null;
 
-  if (!Number.isInteger(id) || id < 1) return <ProductNotFound />;
+  if (!isValidId) return <ProductNotFound />;
   if (!current) return <ProductDetailLoading />;
   if (current.error) {
     return current.error instanceof ApiError && current.error.status === 404 ? (

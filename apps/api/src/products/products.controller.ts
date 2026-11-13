@@ -1,4 +1,4 @@
-import { Controller, Get, Param, ParseIntPipe, Query } from '@nestjs/common';
+import { Controller, Get, Param, Query } from '@nestjs/common';
 import type { RawListProductsQuery } from './dto/list-products-query';
 import { ProductsService } from './products.service';
 
@@ -14,7 +14,7 @@ export class ProductsController {
 
   /** GET /products/:id */
   @Get(':id')
-  findOne(@Param('id', ParseIntPipe) id: number) {
+  findOne(@Param('id') id: string) {
     return this.productsService.findOne(id);
   }
 }
