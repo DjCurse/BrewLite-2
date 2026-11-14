@@ -1,0 +1,53 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: brewlite2-postgres
+    restart: unless-stopped
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: "123456"
+      POSTGRES_DB: brewlite_2db
+    volumes:
+      - brewlite2_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d brewlite_2db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    container_name: brewlite2-api
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    environment:
+      PORT: 3001
+      # Bên trong mạng Docker phải gọi qua tên service "postgres" và cổng nội bộ 5432
+      DATABASE_URL: "postgresql://postgres:123456@postgres:5432/brewlite_2db?schema=public"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: "http://localhost:3001"
+    container_name: brewlite2-web
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      PORT: 3000
+      INTERNAL_API_URL: "http://api:3001"
+      NEXT_PUBLIC_API_URL: "http://localhost:3001"
+    depends_on:
+      - api
+volumes:
+  brewlite2_pgdata:
