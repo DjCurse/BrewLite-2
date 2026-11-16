@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { PRODUCT_SELECTED_EVENT } from "@/lib/options";
@@ -12,6 +12,8 @@ export interface CartStorageItem {
   toppings: string[];
   quantity: number;
 }
+
+const emptySubscribe = () => () => {};
 
 export function readCartItems(): CartStorageItem[] {
   if (typeof window === "undefined") return [];
@@ -27,15 +29,17 @@ export function readCartItems(): CartStorageItem[] {
 
 export function SiteHeader() {
   const router = useRouter();
-  const [mounted, setMounted] = useState(false);
+  const mounted = useSyncExternalStore(
+    emptySubscribe,
+    () => true,
+    () => false,
+  );
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [totalItems, setTotalItems] = useState(0);
   const [headerSearch, setHeaderSearch] = useState("");
   const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
-
     const syncHeaderState = () => {
       const token =
         localStorage.getItem("access_token") || localStorage.getItem("token");
@@ -49,7 +53,7 @@ export function SiteHeader() {
       setTotalItems(count);
     };
 
-    syncHeaderState();
+    queueMicrotask(syncHeaderState);
     window.addEventListener("storage", syncHeaderState);
     window.addEventListener(PRODUCT_SELECTED_EVENT, syncHeaderState);
     window.addEventListener("brewlite:cart-updated", syncHeaderState);
@@ -76,7 +80,8 @@ export function SiteHeader() {
     localStorage.removeItem("access_token");
     localStorage.removeItem("token");
     setIsLoggedIn(false);
-    window.location.href = "/login";
+    router.push("/login");
+    router.refresh();
   };
 
   return (

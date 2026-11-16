@@ -41,8 +41,8 @@ describe("Menu — trạng thái giao diện", () => {
     expect(await screen.findByText("Matcha Latte")).toBeInTheDocument();
     expect(screen.getByText("45.000đ")).toBeInTheDocument();
     expect(screen.getByText("29.000đ")).toBeInTheDocument();
-    expect(screen.getByText("2 món dành cho bạn")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Chọn món Matcha Latte" })).toHaveAttribute(
+    expect(screen.getByText(/02\s*MÓN/i)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Xem chi tiết Matcha Latte" })).toHaveAttribute(
       "href",
       "/products/1",
     );

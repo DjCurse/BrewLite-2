@@ -34,38 +34,51 @@ export default function CheckoutPage() {
 
   const [promoCode, setPromoCode] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("MOMO");
-  const [idempotencyKey, setIdempotencyKey] = useState("");
 
   const [loadingSample, setLoadingSample] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [completedOrder, setCompletedOrder] = useState<PaymentOrderResponse | null>(null);
+  const [idempotencyKey, setIdempotencyKey] = useState<string>(() =>
+    typeof crypto !== "undefined" ? crypto.randomUUID() : "",
+  );
 
   useEffect(() => {
-    setIdempotencyKey(crypto.randomUUID());
+    let cancelled = false;
 
-    try {
-      const rawCart = window.localStorage.getItem(CART_STORAGE_KEY);
-      if (rawCart) setItems(JSON.parse(rawCart) as CheckoutCartItem[]);
-    } catch {
-      setItems([]);
-    }
+    queueMicrotask(() => {
+      if (cancelled) return;
 
-    const token = window.localStorage.getItem("brewlite_access_token");
-    if (!token) {
-      setAuthChecked(true);
-      return;
-    }
+      try {
+        const rawCart = window.localStorage.getItem(CART_STORAGE_KEY);
+        if (rawCart) setItems(JSON.parse(rawCart) as CheckoutCartItem[]);
+      } catch {
+        setItems([]);
+      }
 
-    fetch(`${API_URL}/users/me`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((profile: CurrentUser | null) => {
-        setUser(profile);
+      const token = window.localStorage.getItem("brewlite_access_token");
+      if (!token) {
         setAuthChecked(true);
+        return;
+      }
+
+      fetch(`${API_URL}/users/me`, {
+        headers: { Authorization: `Bearer ${token}` },
       })
-      .catch(() => setAuthChecked(true));
+        .then((res) => (res.ok ? res.json() : null))
+        .then((profile: CurrentUser | null) => {
+          if (cancelled) return;
+          setUser(profile);
+          setAuthChecked(true);
+        })
+        .catch(() => {
+          if (!cancelled) setAuthChecked(true);
+        });
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const subtotal = items.reduce((sum, item) => sum + item.basePrice * item.quantity, 0);
