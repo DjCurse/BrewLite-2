@@ -1,7 +1,8 @@
+// apps/web/app/orders/page.tsx
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import OrderStepper, { type OrderStatus } from '../../components/OrderStepper';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
@@ -44,38 +45,54 @@ function subscribeAuth(callback: () => void) {
   };
 }
 
+async function fetchMyOrders(authToken: string): Promise<Order[]> {
+  const res = await fetch(`${API}/orders/me`, {
+    headers: { Authorization: `Bearer ${authToken}` },
+    cache: 'no-store',
+  });
+  if (res.status === 401) {
+    throw new Error('Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại');
+  }
+  if (!res.ok) {
+    throw new Error('Không tải được đơn hàng');
+  }
+  return (await res.json()) as Order[];
+}
+
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // undefined = đang render phía server (SSR), null = client chưa đăng nhập, string = đã có token
   const token = useSyncExternalStore<string | null | undefined>(
     subscribeAuth,
     () => getToken(),
     () => undefined,
   );
 
-  const load = useCallback(async (authToken: string) => {
-    try {
-      const res = await fetch(`${API}/orders/me`, {
-        headers: { Authorization: `Bearer ${authToken}` },
-        cache: 'no-store',
-      });
-      if (res.status === 401) throw new Error('Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại');
-      if (!res.ok) throw new Error('Không tải được đơn hàng');
-      setOrders(await res.json());
-      setError(null);
-    } catch (e) {
-      setError((e as Error).message);
-    }
-  }, []);
-
   useEffect(() => {
     if (!token) return;
-    void load(token);
-    const t = setInterval(() => void load(token), POLL_MS); // cập nhật trạng thái định kỳ
-    return () => clearInterval(t);
-  }, [load, token]);
+    let active = true;
+
+    const pollOrders = () => {
+      fetchMyOrders(token)
+        .then((data) => {
+          if (!active) return;
+          setOrders(data);
+          setError(null);
+        })
+        .catch((e: unknown) => {
+          if (!active) return;
+          setError(e instanceof Error ? e.message : 'Không tải được đơn hàng');
+        });
+    };
+
+    pollOrders();
+    const t = setInterval(pollOrders, POLL_MS);
+    return () => {
+      active = false;
+      clearInterval(t);
+    };
+  }, [token]);
 
   const handleRetry = () => {
     const currentToken = getToken();
@@ -83,7 +100,14 @@ export default function OrdersPage() {
       setError('Bạn cần đăng nhập để xem đơn hàng');
       return;
     }
-    void load(currentToken);
+    fetchMyOrders(currentToken)
+      .then((data) => {
+        setOrders(data);
+        setError(null);
+      })
+      .catch((e: unknown) => {
+        setError(e instanceof Error ? e.message : 'Không tải được đơn hàng');
+      });
   };
 
   const displayError =
