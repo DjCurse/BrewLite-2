@@ -1,0 +1,69 @@
+@startuml activity-order-swimlane
+title Activity Diagram – Luồng đặt hàng end-to-end (BrewLite)
+skinparam shadowing false
+
+|Khách hàng|
+start
+:Mở trang menu;
+|Frontend (Next.js)|
+:Gọi GET /products, hiển thị menu\n(Loading / Empty / Error);
+|Khách hàng|
+:Chọn đồ uống, size, topping;
+:Thêm vào giỏ hàng (useCartStore);
+:Bấm "Thanh toán";
+
+|Frontend (Next.js)|
+if (Đã đăng nhập?) then (chưa)
+  |Khách hàng|
+  :Đăng ký / Đăng nhập;
+  |Backend (NestJS)|
+  :POST /auth/login\nxác thực bcrypt, cấp JWT;
+  |Frontend (Next.js)|
+  :Lưu access token;
+else (rồi)
+endif
+
+:Gửi yêu cầu đặt đơn (kèm JWT);
+|Backend (NestJS)|
+:Mở Database Transaction;
+:Kiểm tra tồn kho (stock >= quantity);
+if (Còn đủ hàng?) then (hết hàng)
+  :Rollback transaction;
+  |Frontend (Next.js)|
+  :Báo món hết hàng;
+  |Khách hàng|
+  :Quay lại giỏ hàng, đổi món / số lượng;
+  stop
+else (đủ hàng)
+  :Trừ kho, tính tiền ở server\n(áp dụng khuyến mãi nếu có);
+  :Tạo Order (PENDING) + OrderItem;
+  :Commit transaction;
+endif
+
+|Frontend (Next.js)|
+:Hiển thị trang Checkout;
+|Khách hàng|
+:Xác nhận thanh toán;
+|Backend (NestJS)|
+:POST /payments (Idempotency-Key);
+if (Thanh toán thành công?) then (lỗi)
+  :Payment.status = FAILED\n(Order giữ PENDING);
+  |Frontend (Next.js)|
+  :Báo lỗi thanh toán, cho phép thử lại;
+  |Khách hàng|
+  stop
+else (thành công)
+  |Backend (NestJS)|
+  :Payment.status = SUCCESS\nOrder -> PAID;
+  :Ghi LoyaltyTransaction (EARN);
+endif
+
+|Frontend (Next.js)|
+:Trang Theo dõi đơn hiển thị Stepper\nĐã đặt -> Đang pha chế -> Sẵn sàng nhận;
+|Nhân viên quầy|
+:Pha chế đồ uống;
+:PATCH /orders/:id/status -> COMPLETED;
+|Khách hàng|
+:Nhận đồ uống tại quầy;
+stop
+@enduml
