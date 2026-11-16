@@ -1,5 +1,14 @@
 @import "tailwindcss";
 
+@theme {
+  --color-ink: #24352d;
+  --color-muted: #788078;
+  --color-cream: #f7f6ef;
+  --color-line: #e9e8df;
+  --color-brand: #314b3d;
+  --color-brand-dark: #253b2f;
+  --color-brand-soft: #e5eddf;
+}
 :root {
   --ink:#24352d;
   --muted:#788078;

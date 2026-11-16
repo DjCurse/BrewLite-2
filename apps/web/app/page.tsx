@@ -1,70 +1,61 @@
-import Link from 'next/link';
-import Image from 'next/image';
-import { getProducts, formatPrice } from '@/lib/products';
+import { Menu } from "@/components/menu";
+import { SiteFooter, SiteHeader } from "@/components/site-header";
 
-//export const dynamic = 'force-dynamic';
-
-export default async function HomePage() {
-  let products;
-  try {
-    products = await getProducts();
-  } catch {
-    return (
-      <main className="state-page">
-        <div className="state-card">
-          <span className="eyebrow">BREWLITE MENU</span>
-          <h1>Không thể kết nối máy chủ</h1>
-          <p>Vui lòng kiểm tra API NestJS và cơ sở dữ liệu PostgreSQL, sau đó tải lại trang.</p>
-          <Link className="button" href="/">Thử lại</Link>
-        </div>
-      </main>
-    );
-  }
-
+export default function HomePage() {
   return (
-    <main>
-      <section className="hero">
-        <nav className="nav container">
-          <Link href="/" className="brand"><span className="brand-mark">B</span> BrewLite</Link>
-          <span className="nav-note">FRESHLY BREWED · DAILY</span>
-        </nav>
-        <div className="hero-content container">
-          <span className="eyebrow">A LITTLE BREAK, A LOT OF JOY</span>
-          <h1>Mỗi ngày một<br /><em>chút dịu dàng.</em></h1>
-          <p>Những thức uống được pha chế chỉn chu, dành cho khoảnh khắc bạn muốn chậm lại.</p>
-          <a className="button button-light" href="#menu">Khám phá menu <span>↓</span></a>
-        </div>
-        <div className="hero-orbit orbit-one" />
-        <div className="hero-orbit orbit-two" />
-      </section>
+    <div className="flex min-h-screen flex-col bg-cream text-ink">
+      <SiteHeader />
 
-      <section className="menu-section container" id="menu">
-        <div className="section-heading">
-          <div><span className="eyebrow">OUR SELECTION</span><h2>Menu hôm nay</h2></div>
-          <span className="product-count">{products.length.toString().padStart(2, '0')} MÓN</span>
-        </div>
-        {products.length === 0 ? (
-          <div className="empty-state"><h3>Menu đang được cập nhật</h3><p>Hiện chưa có sản phẩm nào. Hãy quay lại sau nhé!</p></div>
-        ) : (
-          <div className="product-grid">
-            {products.map((product) => (
-              <Link href={`/products/${product.id}`} className="product-card" key={product.id}>
-                <div className="product-image">
-                  {product.imageUrl ? (
-                    <Image src={product.imageUrl} alt={product.name} fill sizes="(max-width: 700px) 100vw, (max-width: 1100px) 50vw, 25vw" unoptimized />
-                  ) : <div className="image-placeholder">BrewLite</div>}
-                  <span className="category-tag">{product.category}</span>
-                </div>
-                <div className="product-info">
-                  <div><h3>{product.name}</h3><p>{product.description || 'Thức uống thơm ngon từ BrewLite.'}</p></div>
-                  <div className="product-bottom"><strong>{formatPrice(product.price)}</strong><span className="view-link">Chi tiết ↗</span></div>
-                </div>
-              </Link>
-            ))}
+      <main className="flex-1">
+        {/* HERO ĐẶC TRƯNG CỦA BREWLITE 2 */}
+        <section className="hero !min-h-[460px]">
+          <div className="hero-content container !py-16 md:!py-24">
+            <span className="eyebrow">A LITTLE BREAK, A LOT OF JOY</span>
+            <h1>
+              Mỗi ngày một
+              <br />
+              <em>chút dịu dàng.</em>
+            </h1>
+            <p>
+              Những thức uống được pha chế chỉn chu, dành cho khoảnh khắc bạn
+              muốn chậm lại.
+            </p>
+            <a className="button button-light" href="#menu">
+              Khám phá menu <span>↓</span>
+            </a>
           </div>
-        )}
-      </section>
-      <footer className="footer"><span className="brand"><span className="brand-mark">B</span> BrewLite</span><span>Made for your little happy moments.</span></footer>
-    </main>
+          <div className="hero-orbit orbit-one" />
+          <div className="hero-orbit orbit-two" />
+        </section>
+
+        {/* MENU CÓ TÌM KIẾM, DANH MỤC & PHÂN TRANG */}
+        <div id="menu" className="container py-14 md:py-16">
+          <Menu />
+        </div>
+
+        {/* CÂU CHUYỆN BREWLITE */}
+        <section id="about" className="border-t border-[#e9e8df] bg-white py-14">
+          <div className="container grid gap-8 md:grid-cols-3">
+            <div>
+              <span className="eyebrow">OUR CRAFT</span>
+              <h3
+                style={{ fontFamily: "var(--serif)" }}
+                className="mt-2 text-2xl font-normal text-ink"
+              >
+                Pha chế thủ công mỗi ngày
+              </h3>
+            </div>
+            <p className="text-sm leading-relaxed text-muted md:col-span-2">
+              BrewLite chọn lọc lá trà nguyên bản, Matcha Uji Nhật Bản và hạt
+              cà phê rang mộc để giữ trọn hương vị tự nhiên. Bạn có thể tùy
+              chỉnh kích cỡ, thêm topping yêu thích và đặt nhận tại quầy nhanh
+              chóng.
+            </p>
+          </div>
+        </section>
+      </main>
+
+      <SiteFooter />
+    </div>
   );
 }
