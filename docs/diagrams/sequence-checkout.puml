@@ -1,6 +1,6 @@
 @startuml sequence-checkout
 title Sequence Diagram - Use Case Checkout & Payment
-
+skinparam backgroundColor white
 actor Customer
 participant "Next.js UI" as UI
 participant "NestJS API" as API

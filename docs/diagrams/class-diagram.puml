@@ -1,6 +1,6 @@
 @startuml class-diagram
 title Class Diagram - Domain Model (BrewLite System)
-
+skinparam backgroundColor white
 enum OrderStatus {
     PENDING
     PAID
@@ -45,18 +45,20 @@ class User {
 class Product {
     + String id
     + String name
+    + String category
     + String description
     + Decimal price
-    + Int stockQuantity
-    + Boolean isActive
+    + String imageUrl
+    + Int stock
+    + Boolean isAvailable
 }
 
 class Order {
     + String id
     + String userId
-    + Decimal totalAmount
-    + Decimal discountAmount
-    + Decimal finalAmount
+    + Decimal total
+    + Decimal discount
+    + Decimal finalTotal
     + OrderStatus status
     + String idempotencyKey
     + DateTime createdAt
@@ -68,7 +70,7 @@ class OrderItem {
     + String productId
     + Int quantity
     + Decimal unitPrice
-    + Decimal totalPrice
+    + Decimal lineTotal
 }
 
 class Payment {
