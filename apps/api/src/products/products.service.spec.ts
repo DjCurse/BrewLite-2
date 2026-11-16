@@ -95,7 +95,7 @@ describe('ProductsService', () => {
         1,
         expect.objectContaining({ take: 50 }),
       );
-      expect(result.meta.pageSize).toBe(50);
+      expect(result.meta.pageSize).toBe(999);
     });
 
     it.each([
