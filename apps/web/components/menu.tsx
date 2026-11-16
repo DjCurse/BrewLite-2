@@ -19,7 +19,6 @@ interface Result {
   error?: string;
 }
 
-/** Màn hình Menu: tìm kiếm, lọc danh mục, phân trang và đủ trạng thái Loading/Empty/Error. */
 export function Menu() {
   const [category, setCategory] = useState(ALL_CATEGORIES);
   const [searchInput, setSearchInput] = useState("");
@@ -32,7 +31,20 @@ export function Menu() {
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const listTop = useRef<HTMLDivElement>(null);
 
-  // Mỗi tổ hợp bộ lọc/trang/lần thử lại là một "yêu cầu"; chưa có kết quả khớp key = đang tải.
+  // Đồng bộ từ khóa nếu người dùng tìm kiếm từ thanh Header
+  useEffect(() => {
+    const syncFromUrl = () => {
+      const params = new URLSearchParams(window.location.search);
+      const urlQuery = (params.get("q") ?? "").trim();
+      setSearchInput(urlQuery);
+      setQuery(urlQuery);
+      setPage(1);
+    };
+    syncFromUrl();
+    window.addEventListener("popstate", syncFromUrl);
+    return () => window.removeEventListener("popstate", syncFromUrl);
+  }, []);
+
   const requestKey = `${category}|${query}|${page}|${reloadCount}`;
 
   useEffect(() => {
@@ -92,43 +104,56 @@ export function Menu() {
   }
 
   const chipClass = (active: boolean) =>
-    `min-h-11 shrink-0 rounded-full px-4 text-sm font-semibold transition ${
+    `min-h-10 shrink-0 rounded-sm px-4 text-xs font-semibold tracking-wide transition ${
       active
-        ? "bg-brand text-white"
-        : "border border-line bg-white text-ink hover:border-brand/50"
+        ? "bg-[#314b3d] text-white"
+        : "border border-[#e9e8df] bg-white text-[#536454] hover:border-[#314b3d]"
     }`;
 
   return (
     <section aria-labelledby="menu-heading">
-      <div ref={listTop} className="scroll-mt-20" />
-      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+      <div ref={listTop} className="scroll-mt-24" />
+
+      {/* Tiêu đề & Ô tìm kiếm phong cách BrewLite 2 */}
+      <div className="flex flex-col gap-5 border-b border-[#e9e8df] pb-6 md:flex-row md:items-end md:justify-between">
         <div>
-          <h2 id="menu-heading" className="text-2xl font-bold tracking-tight md:text-3xl">
-            Hôm nay, bạn uống gì?
+          <span className="eyebrow">OUR SELECTION</span>
+          <h2
+            id="menu-heading"
+            style={{ fontFamily: "var(--serif)" }}
+            className="mt-2 text-3xl font-normal tracking-tight text-ink md:text-[42px]"
+          >
+            Menu hôm nay
           </h2>
-          <p className="mt-1 text-sm text-muted">
-            Pha mới khi bạn đặt. Ngon theo cách bạn thích.
-          </p>
         </div>
-        <div className="w-full md:w-80">
-          <label htmlFor="menu-search" className="sr-only">
-            Tìm món
-          </label>
-          <input
-            id="menu-search"
-            type="search"
-            value={searchInput}
-            onChange={(event) => handleSearchChange(event.target.value)}
-            placeholder="Tìm món bạn yêu thích..."
-            className="min-h-11 w-full rounded-full border border-line bg-white px-4 text-base outline-none transition placeholder:text-muted focus:border-brand focus-visible:ring-2 focus-visible:ring-brand/30"
-          />
+
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="w-full sm:w-72">
+            <label htmlFor="menu-search" className="sr-only">
+              Tìm món
+            </label>
+            <input
+              id="menu-search"
+              type="search"
+              value={searchInput}
+              onChange={(event) => handleSearchChange(event.target.value)}
+              placeholder="Tìm tên thức uống..."
+              className="h-10 w-full rounded-sm border border-[#dedfd6] bg-white px-3.5 text-sm outline-none transition placeholder:text-muted focus:border-[#314b3d]"
+            />
+          </div>
+          {current?.data && (
+            <span className="product-count !pb-0 shrink-0">
+              {current.data.meta.total.toString().padStart(2, "0")} MÓN
+            </span>
+          )}
         </div>
       </div>
 
+      {/* Thanh lọc danh mục */}
       <div
         role="group"
         aria-label="Lọc theo danh mục"
-        className="no-scrollbar -mx-4 mt-4 flex gap-2 overflow-x-auto px-4 pb-1 md:mx-0 md:flex-wrap md:px-0"
+        className="no-scrollbar mt-5 flex gap-2 overflow-x-auto pb-1 md:flex-wrap"
       >
         {[ALL_CATEGORIES, ...categories].map((name) => (
           <button
@@ -143,11 +168,7 @@ export function Menu() {
         ))}
       </div>
 
-      <p className="mt-5 min-h-5 text-sm text-muted" aria-live="polite">
-        {current?.data && `${current.data.meta.total} món dành cho bạn`}
-      </p>
-
-      <div className="mt-3">
+      <div className="mt-6">
         {!current && <MenuLoading count={PAGE_SIZE} />}
 
         {current?.error && (
@@ -163,7 +184,7 @@ export function Menu() {
 
         {current?.data && current.data.data.length > 0 && (
           <>
-            <ul className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-5 lg:grid-cols-4">
+            <ul className="product-grid">
               {current.data.data.map((product) => (
                 <ProductCard key={product.id} product={product} />
               ))}

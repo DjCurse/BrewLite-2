@@ -36,11 +36,22 @@ export class ApiError extends Error {
 export const ALL_CATEGORIES = "Tất cả";
 export const PAGE_SIZE = 9;
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+// Tách URL gọi nội bộ giữa các container (SSR) và URL gọi từ trình duyệt (Client)
+const API_URL =
+  typeof window === "undefined"
+    ? process.env.INTERNAL_API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001"
+    : process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+
+function normalizeText(value: string | null | undefined): string | null {
+  return typeof value === "string" ? value.normalize("NFC") : null;
+}
 
 function normalizeProduct(raw: Product): Product {
   return {
     ...raw,
+    name: raw.name ? raw.name.normalize("NFC") : "",
+    category: normalizeText(raw.category),
+    description: normalizeText(raw.description),
     stock: raw.stock ?? raw.stockQuantity ?? 0,
     isAvailable: raw.isAvailable ?? raw.isActive ?? true,
   };
@@ -96,6 +107,9 @@ export async function fetchProducts(
 
   return {
     ...result,
+    categories: Array.isArray(result.categories)
+      ? result.categories.map((cat) => cat.normalize("NFC"))
+      : [],
     data: result.data.map(normalizeProduct),
   };
 }
