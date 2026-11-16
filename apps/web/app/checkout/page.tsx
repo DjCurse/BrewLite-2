@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useState, useSyncExternalStore } from "react";
 import { SiteFooter, SiteHeader } from "@/components/site-header";
 import {
   submitPayment,
@@ -27,35 +27,53 @@ const PAYMENT_METHODS: { value: PaymentMethod; label: string; desc: string }[] =
   { value: "CASH", label: "Tiền mặt tại quầy", desc: "Thanh toán trực tiếp khi nhận nước" },
 ];
 
+const emptySubscribe = () => () => {};
+
+function useIsClient() {
+  return useSyncExternalStore(
+    emptySubscribe,
+    () => true,
+    () => false,
+  );
+}
+
+function generateIdempotencyKey(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `idem_${Date.now()}`;
+}
+
 export default function CheckoutPage() {
-  const [items, setItems] = useState<CheckoutCartItem[]>([]);
+  const isClient = useIsClient();
+
+  const [items, setItems] = useState<CheckoutCartItem[]>(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const rawCart = window.localStorage.getItem(CART_STORAGE_KEY);
+      return rawCart ? (JSON.parse(rawCart) as CheckoutCartItem[]) : [];
+    } catch {
+      return [];
+    }
+  });
   const [user, setUser] = useState<CurrentUser | null>(null);
-  const [authChecked, setAuthChecked] = useState(false);
+  const [profileFetched, setProfileFetched] = useState(false);
 
   const [promoCode, setPromoCode] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("MOMO");
-  const [idempotencyKey, setIdempotencyKey] = useState("");
+  const [idempotencyKey, setIdempotencyKey] = useState<string>(() => generateIdempotencyKey());
 
   const [loadingSample, setLoadingSample] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [completedOrder, setCompletedOrder] = useState<PaymentOrderResponse | null>(null);
 
+  const hasToken = isClient && Boolean(window.localStorage.getItem("brewlite_access_token"));
+  const authChecked = isClient && (!hasToken || profileFetched);
+
   useEffect(() => {
-    setIdempotencyKey(crypto.randomUUID());
-
-    try {
-      const rawCart = window.localStorage.getItem(CART_STORAGE_KEY);
-      if (rawCart) setItems(JSON.parse(rawCart) as CheckoutCartItem[]);
-    } catch {
-      setItems([]);
-    }
-
     const token = window.localStorage.getItem("brewlite_access_token");
-    if (!token) {
-      setAuthChecked(true);
-      return;
-    }
+    if (!token) return;
 
     fetch(`${API_URL}/users/me`, {
       headers: { Authorization: `Bearer ${token}` },
@@ -63,9 +81,11 @@ export default function CheckoutPage() {
       .then((res) => (res.ok ? res.json() : null))
       .then((profile: CurrentUser | null) => {
         setUser(profile);
-        setAuthChecked(true);
+        setProfileFetched(true);
       })
-      .catch(() => setAuthChecked(true));
+      .catch(() => {
+        setProfileFetched(true);
+      });
   }, []);
 
   const subtotal = items.reduce((sum, item) => sum + item.basePrice * item.quantity, 0);
@@ -278,7 +298,7 @@ export default function CheckoutPage() {
                   value={promoCode}
                   onChange={(e) => {
                     setPromoCode(e.target.value);
-                    setIdempotencyKey(crypto.randomUUID());
+                    setIdempotencyKey(generateIdempotencyKey());
                   }}
                   placeholder="Nhập mã khuyến mãi..."
                   className="mt-3 min-h-11 w-full rounded-xl border border-line px-4 text-sm uppercase outline-none focus:border-brand"

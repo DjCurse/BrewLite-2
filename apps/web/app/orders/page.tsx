@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import OrderStepper, { type OrderStatus } from '../../components/OrderStepper';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
@@ -27,6 +27,7 @@ const vnd = (n: number | string) =>
   new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(n));
 
 function getToken(): string | null {
+  if (typeof window === 'undefined') return null;
   for (const k of TOKEN_KEYS) {
     const v = localStorage.getItem(k);
     if (v) return v;
@@ -34,19 +35,30 @@ function getToken(): string | null {
   return null;
 }
 
+function subscribeAuth(callback: () => void) {
+  window.addEventListener('storage', callback);
+  window.addEventListener('brewlite:auth-updated', callback);
+  return () => {
+    window.removeEventListener('storage', callback);
+    window.removeEventListener('brewlite:auth-updated', callback);
+  };
+}
+
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    const token = getToken();
-    if (!token) {
-      setError('Bạn cần đăng nhập để xem đơn hàng');
-      return;
-    }
+  // undefined = đang render phía server (SSR), null = client chưa đăng nhập, string = đã có token
+  const token = useSyncExternalStore<string | null | undefined>(
+    subscribeAuth,
+    () => getToken(),
+    () => undefined,
+  );
+
+  const load = useCallback(async (authToken: string) => {
     try {
       const res = await fetch(`${API}/orders/me`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${authToken}` },
         cache: 'no-store',
       });
       if (res.status === 401) throw new Error('Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại');
@@ -59,25 +71,38 @@ export default function OrdersPage() {
   }, []);
 
   useEffect(() => {
-    void load();
-    const t = setInterval(() => void load(), POLL_MS); // cập nhật trạng thái định kỳ
+    if (!token) return;
+    void load(token);
+    const t = setInterval(() => void load(token), POLL_MS); // cập nhật trạng thái định kỳ
     return () => clearInterval(t);
-  }, [load]);
+  }, [load, token]);
+
+  const handleRetry = () => {
+    const currentToken = getToken();
+    if (!currentToken) {
+      setError('Bạn cần đăng nhập để xem đơn hàng');
+      return;
+    }
+    void load(currentToken);
+  };
+
+  const displayError =
+    token === null ? 'Bạn cần đăng nhập để xem đơn hàng' : error;
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-8">
       <h1 className="mb-6 font-serif text-3xl text-stone-900">Đơn hàng của tôi</h1>
 
-      {error && !orders && (
+      {displayError && !orders && (
         <div data-testid="orders-error" className="rounded-lg bg-red-50 p-4 text-red-700">
-          {error}{' '}
-          <button onClick={() => void load()} className="underline">
+          {displayError}{' '}
+          <button onClick={handleRetry} className="underline">
             Thử lại
           </button>
         </div>
       )}
 
-      {!error && orders === null && (
+      {!displayError && orders === null && (
         <div data-testid="orders-loading" className="animate-pulse space-y-4">
           <div className="h-32 rounded-xl bg-stone-200" />
           <div className="h-32 rounded-xl bg-stone-200" />

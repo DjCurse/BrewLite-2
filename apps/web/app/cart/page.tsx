@@ -1,7 +1,7 @@
 // apps/web/app/cart/page.tsx
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
@@ -68,6 +68,16 @@ const PROMO_CODES: Record<string, { label: string; type: 'PERCENT' | 'FIXED'; va
   FREESHIP: { label: 'Giảm 15.000đ phí giao hàng', type: 'FIXED', value: 15000 },
 };
 
+const emptySubscribe = () => () => {};
+
+function useIsClient() {
+  return useSyncExternalStore(
+    emptySubscribe,
+    () => true,
+    () => false
+  );
+}
+
 function formatVND(amount: number): string {
   return new Intl.NumberFormat('vi-VN', {
     style: 'currency',
@@ -119,10 +129,19 @@ function normalizeCartItems(raw: unknown): CartItem[] {
 
 export default function CartPage() {
   const router = useRouter();
+  const isClient = useIsClient();
 
-  // State giỏ hàng
-  const [items, setItems] = useState<CartItem[]>([]);
-  const [hydrated, setHydrated] = useState(false);
+  // State giỏ hàng (khởi tạo trực tiếp từ localStorage)
+  const [items, setItems] = useState<CartItem[]>(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const savedCart =
+        localStorage.getItem('brewlite_cart') || localStorage.getItem('cart');
+      return savedCart ? normalizeCartItems(JSON.parse(savedCart)) : [];
+    } catch {
+      return [];
+    }
+  });
   const [promoInput, setPromoInput] = useState('');
   const [appliedPromo, setAppliedPromo] = useState<string | null>(null);
   const [promoError, setPromoError] = useState<string | null>(null);
@@ -131,46 +150,28 @@ export default function CartPage() {
   // State kiểm tra API tích hợp
   const [showApiTester, setShowApiTester] = useState(true);
   const [apiBaseUrl, setApiBaseUrl] = useState(DEFAULT_API_URL);
-  const [authToken, setAuthToken] = useState('');
+  const [authToken, setAuthToken] = useState<string>(() => {
+    if (typeof window === 'undefined') return '';
+    return (
+      localStorage.getItem('access_token') ||
+      localStorage.getItem('token') ||
+      localStorage.getItem('brewlite_token') ||
+      ''
+    );
+  });
   const [loginEmail, setLoginEmail] = useState('customer@brewlite.vn');
   const [loginPassword, setLoginPassword] = useState('123456');
 
   const [menuProducts, setMenuProducts] = useState<ProductOption[]>([]);
-  const [testOrderId, setTestOrderId] = useState('');
+  const [testOrderId, setTestOrderId] = useState<string>(() => {
+    if (typeof window === 'undefined') return '';
+    return localStorage.getItem('brewlite_last_order_id') || '';
+  });
   const [selectedStatus, setSelectedStatus] = useState<string>('CONFIRMED');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('QR_CODE');
   const [idempotencyKey, setIdempotencyKey] = useState<string>(() => generateIdempotencyKey());
   const [isTesting, setIsTesting] = useState(false);
   const [apiLogs, setApiLogs] = useState<ApiTestResult[]>([]);
-
-  // Khởi tạo dữ liệu từ localStorage
-  useEffect(() => {
-    try {
-      const savedCart =
-        localStorage.getItem('brewlite_cart') || localStorage.getItem('cart');
-      if (savedCart) {
-        setItems(normalizeCartItems(JSON.parse(savedCart)));
-      }
-
-      const savedToken =
-        localStorage.getItem('access_token') ||
-        localStorage.getItem('token') ||
-        localStorage.getItem('brewlite_token') ||
-        '';
-      if (savedToken) {
-        setAuthToken(savedToken);
-      }
-
-      const savedOrderId = localStorage.getItem('brewlite_last_order_id') || '';
-      if (savedOrderId) {
-        setTestOrderId(savedOrderId);
-      }
-    } catch {
-      // Bỏ qua lỗi parse localStorage
-    } finally {
-      setHydrated(true);
-    }
-  }, []);
 
   // Đồng bộ giỏ hàng xuống localStorage
   const persistCart = useCallback((nextItems: CartItem[]) => {
@@ -459,7 +460,7 @@ export default function CartPage() {
     });
   };
 
-  if (!hydrated) {
+  if (!isClient) {
     return (
       <main className="mx-auto max-w-6xl px-4 py-10">
         <div className="h-8 w-48 animate-pulse rounded bg-stone-200" />
