@@ -9,7 +9,7 @@ skinparam shadowing false
 skinparam linetype ortho
 skinparam defaultFontName Arial
 skinparam defaultFontSize 13
-
+skinparam backgroundColor white
 skinparam usecase {
     BackgroundColor #F7F7F7
     BorderColor #333333
@@ -95,7 +95,7 @@ note bottom of UC11
   • Thiếu hoặc trùng Idempotency-Key:
     không tạo giao dịch mới
   • Thất bại: đơn vẫn PENDING,
-    giờ giữ nguyên
+    giỏ giữ nguyên
 end note
 
 @enduml

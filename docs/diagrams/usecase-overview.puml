@@ -8,7 +8,7 @@ skinparam shadowing false
 skinparam linetype ortho
 skinparam defaultFontName Arial
 skinparam defaultFontSize 13
-
+skinparam backgroundColor white
 skinparam usecase {
     BackgroundColor #FFF8E7
     BorderColor #8B5E3C
