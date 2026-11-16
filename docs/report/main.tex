@@ -257,7 +257,7 @@ Kết nối mạng không ổn định khi khách xem thực đơn & Gián đo�
 
 % ==================== MỤC 1.2 ====================
 \subsection{Đặc tả Yêu cầu Chức năng (FR) và Phi chức năng (NFR)}
-\textit{(Phụ trách thực hiện: Nguyễn Thị Tuyết Trâm)}
+\textit{(Phụ trách thực hiện: Nguyễn Thị Tuyết Trâm phối hợp cùng Trần Thị Trúc Đào)}
 
 \subsubsection{Danh mục Yêu cầu chức năng (Functional Requirements)}
 Hệ thống BrewLite gồm 20 yêu cầu chức năng được phân thành 7 nhóm nghiệp vụ chính:
@@ -534,6 +534,8 @@ Hệ thống được \textbf{Tô Phúc Khang} thiết kế theo mô hình phân
 \hline
 \texttt{GET} & \texttt{/orders/me} & Bearer JWT & Lấy danh sách lịch sử đơn hàng của người dùng hiện tại. \\
 \hline
+\texttt{PATCH} & \texttt{/orders/:id/status} & Bearer JWT & Cập nhật tiến trình xử lý đơn hàng (\texttt{PREPARING} $\rightarrow$ \texttt{READY} $\rightarrow$ \texttt{COMPLETED}). \\
+\hline
 \texttt{POST} & \texttt{/payments} & Bearer JWT & Thanh toán đơn hàng kèm header \texttt{Idempotency-Key}, áp mã giảm giá và cộng điểm. \\
 \hline
 \texttt{GET} & \texttt{/health} & Công khai & Kiểm tra trạng thái hoạt động của API và kết nối PostgreSQL (Smoke Test). \\
@@ -583,7 +585,7 @@ Trong MVP Sprint 1, \textbf{Phan Lê Ngọc Như Ý} phối hợp với \textbf{
 Trong Sprint 2, các thành viên phối hợp hoàn thiện luồng nghiệp vụ khép kín từ xác thực người dùng đến thanh toán không tiền mặt:
 \begin{itemize}
     \item \textbf{Xác thực JWT (\textit{Nguyễn Thị Tuyết Trâm}):} Hoàn thiện module Auth (\texttt{POST /auth/register}, \texttt{POST /auth/login}, \texttt{GET /users/me}), băm mật khẩu bằng \texttt{bcrypt}, bảo vệ tuyến đường bằng \texttt{JwtAuthGuard} và xây dựng trang Đăng ký/Đăng nhập điều hướng mượt mà.
-    \item \textbf{Giỏ hàng \& Theo dõi đơn hàng (\textit{Nguyễn Thị Huyền Trang}):} Xây dựng \texttt{useCartStore} (lưu trữ bền vững trên trình duyệt, lắng nghe sự kiện \texttt{brewlite:product-selected} từ màn hình của \textbf{Phan Lê Ngọc Như Ý}), giao diện Giỏ hàng (\texttt{/cart}), API \texttt{GET /orders/me} và màn hình Theo dõi tiến trình trạng thái đơn hàng.
+   \item \textbf{Giỏ hàng \& Theo dõi đơn hàng (\textit{Nguyễn Thị Huyền Trang}):} Xây dựng \texttt{useCartStore} (lưu trữ bền vững trên trình duyệt, lắng nghe sự kiện \texttt{brewlite:product-selected} từ màn hình của \textbf{Phan Lê Ngọc Như Ý}), giao diện Giỏ hàng (\texttt{/cart}), API \texttt{GET /orders/me}, \texttt{PATCH /orders/:id/status} và màn hình Theo dõi trạng thái đơn hàng trực quan (\textit{Order Tracking Stepper}: Đã đặt $\rightarrow$ Đang pha chế $\rightarrow$ Sẵn sàng nhận, tương ứng vòng đời \texttt{PENDING} $\rightarrow$ \texttt{PAID / PAYMENT\_FAILED} $\rightarrow$ \texttt{PREPARING} $\rightarrow$ \texttt{READY} $\rightarrow$ \texttt{COMPLETED}).
     \item \textbf{Tạo đơn \& Trừ tồn kho nguyên tử (\textit{Lương Thanh Tuấn}):} Triển khai endpoint \texttt{POST /orders} thực thi kiểm tra số lượng tồn kho (\texttt{stock >= quantity}) và cập nhật giảm tồn kho trong cùng một Prisma Transaction, đồng thời xây dựng endpoint kiểm tra sức khỏe dịch vụ \texttt{GET /health}.
     \item \textbf{Thanh toán không tiền mặt, Khuyến mãi \& Loyalty (\textit{Tô Phúc Khang \& Trần Thị Trúc Đào}):} \textbf{Tô Phúc Khang} hiện thực module Payments (\texttt{POST /payments}) với cơ chế chống thanh toán lặp qua header \texttt{Idempotency-Key}, áp dụng mã khuyến mãi (\texttt{SGU2026}, \texttt{BREWLITE10}, \texttt{FREESHIP}), xử lý kịch bản giả lập lỗi \texttt{PAYMENT\_FAILED} và tự động cộng điểm tích lũy Loyalty khi đơn chuyển sang \texttt{PAID}; \textbf{Trần Thị Trúc Đào} bổ sung tính năng hiển thị và thanh toán qua mã QR không tiền mặt trên giao diện thanh toán.
 \end{itemize}
@@ -609,8 +611,8 @@ Hệ thống được kiểm thử tự động ở cả 3 tầng với sự ph�
         \item \textbf{Nguyễn Thị Tuyết Trâm:} Viết Unit Test kiểm thử đăng ký, đăng nhập, validate mật khẩu và phân quyền JWT trong \texttt{AuthService}.
         \item \textbf{Tô Phúc Khang:} Viết Unit Test kiểm thử logic tính phụ thu Size/Topping, áp mã khuyến mãi và quy đổi điểm thưởng Loyalty.
     \end{itemize}
-    \item \textbf{Integration Test (\textit{Lương Thanh Tuấn}):} Kiểm thử luồng gọi API thực tế với PostgreSQL: đặt hàng trừ tồn kho, từ chối và rollback khi đặt vượt tồn kho, gửi trùng \texttt{Idempotency-Key} không tạo giao dịch thứ hai, và giữ nguyên giỏ hàng khi thanh toán thất bại (\texttt{PAYMENT\_FAILED}).
-    \item \textbf{End-to-End (E2E) Test (\textit{Nguyễn Thị Huyền Trang \& Trần Thị Trúc Đào}):} Kiểm thử toàn trình từ duyệt menu $\rightarrow$ chọn món $\rightarrow$ đăng nhập $\rightarrow$ đặt đơn $\rightarrow$ thanh toán (Ví/Thẻ/QR) $\rightarrow$ xem xác nhận và lịch sử đơn hàng.
+    \item \textbf{Integration Test (\textit{Lương Thanh Tuấn}):} Viết bộ kiểm thử tích hợp (\texttt{tests/orders-payments.int-spec.ts}) bằng Jest và Supertest gọi API thực tế với PostgreSQL: đặt hàng trừ tồn kho, từ chối và rollback khi đặt vượt tồn kho, gửi trùng \texttt{Idempotency-Key} không tạo giao dịch thứ hai, và giữ nguyên giỏ hàng khi thanh toán thất bại (\texttt{PAYMENT\_FAILED}).
+    \item \textbf{End-to-End (E2E) Test (\textit{Nguyễn Thị Huyền Trang \& Trần Thị Trúc Đào}):} Sử dụng Playwright/Cypress kiểm thử toàn trình từ duyệt menu $\rightarrow$ chọn món $\rightarrow$ đăng nhập $\rightarrow$ đặt đơn $\rightarrow$ thanh toán (Ví/Thẻ/QR) $\rightarrow$ xem xác nhận và theo dõi trạng thái đơn hàng.
 \end{itemize}
 
 \begin{figure}[H]
@@ -622,7 +624,7 @@ Hệ thống được kiểm thử tự động ở cả 3 tầng với sự ph�
 \newpage
 % ==================== CHƯƠNG 5: CI/CD, CLOUD/VERCEL & TRUY VẾT ====================
 \section{Tự động hóa CI/CD, Triển khai Cloud và Ma trận Truy vết}
-
+\textit{(Phụ trách thực hiện: Tô Phúc Khang, Nguyễn Thị Huyền Trang và Trần Thị Trúc Đào)}
 \subsection{Quy trình Continuous Integration (CI Pipeline)}
 \textit{(Phụ trách thực hiện: Tô Phúc Khang \& Phan Lê Ngọc Như Ý)}
 
@@ -806,9 +808,11 @@ FR-13 & UC10 Áp mã khuyến mãi & UseCase, Sequence, Class & \texttt{Payments
 \hline
 FR-14..16 & UC11 Thanh toán \& Idempotency & Activity, Sequence, Class & \texttt{POST /payments} & INT-02 \\
 \hline
-FR-17, 18 & UC13, UC16, UC17 Xác nhận \& Lịch sử & UseCase, Activity & \texttt{GET /orders/me} & E2E-02 \\
+FR-17, 18 & UC13, UC16, UC17 Xác nhận \& Theo dõi đơn & UseCase, Activity & \texttt{GET /orders/me}, \texttt{PATCH /orders/:id/status} & E2E-02 \\
 \hline
 FR-19, 20 & UC12, UC14, UC15 Loyalty \& Hồ sơ & UseCase, Class & \texttt{GET /users/me} & INT-03 \\
+\hline
+NFR-07 & Kiểm tra sức khỏe hệ thống (Smoke Test) & Deployment & \texttt{GET /health} & SMOKE-01 \\
 \hline
 \end{longtable}
 \normalsize

@@ -1,7 +1,8 @@
+// apps/web/app/orders/page.tsx
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import OrderStepper, { type OrderStatus } from '../../components/OrderStepper';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
@@ -27,6 +28,7 @@ const vnd = (n: number | string) =>
   new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(n));
 
 function getToken(): string | null {
+  if (typeof window === 'undefined') return null;
   for (const k of TOKEN_KEYS) {
     const v = localStorage.getItem(k);
     if (v) return v;
@@ -34,50 +36,97 @@ function getToken(): string | null {
   return null;
 }
 
+function subscribeAuth(callback: () => void) {
+  window.addEventListener('storage', callback);
+  window.addEventListener('brewlite:auth-updated', callback);
+  return () => {
+    window.removeEventListener('storage', callback);
+    window.removeEventListener('brewlite:auth-updated', callback);
+  };
+}
+
+async function fetchMyOrders(authToken: string): Promise<Order[]> {
+  const res = await fetch(`${API}/orders/me`, {
+    headers: { Authorization: `Bearer ${authToken}` },
+    cache: 'no-store',
+  });
+  if (res.status === 401) {
+    throw new Error('Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại');
+  }
+  if (!res.ok) {
+    throw new Error('Không tải được đơn hàng');
+  }
+  return (await res.json()) as Order[];
+}
+
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    const token = getToken();
-    if (!token) {
+  const token = useSyncExternalStore<string | null | undefined>(
+    subscribeAuth,
+    () => getToken(),
+    () => undefined,
+  );
+
+  useEffect(() => {
+    if (!token) return;
+    let active = true;
+
+    const pollOrders = () => {
+      fetchMyOrders(token)
+        .then((data) => {
+          if (!active) return;
+          setOrders(data);
+          setError(null);
+        })
+        .catch((e: unknown) => {
+          if (!active) return;
+          setError(e instanceof Error ? e.message : 'Không tải được đơn hàng');
+        });
+    };
+
+    pollOrders();
+    const t = setInterval(pollOrders, POLL_MS);
+    return () => {
+      active = false;
+      clearInterval(t);
+    };
+  }, [token]);
+
+  const handleRetry = () => {
+    const currentToken = getToken();
+    if (!currentToken) {
       setError('Bạn cần đăng nhập để xem đơn hàng');
       return;
     }
-    try {
-      const res = await fetch(`${API}/orders/me`, {
-        headers: { Authorization: `Bearer ${token}` },
-        cache: 'no-store',
+    fetchMyOrders(currentToken)
+      .then((data) => {
+        setOrders(data);
+        setError(null);
+      })
+      .catch((e: unknown) => {
+        setError(e instanceof Error ? e.message : 'Không tải được đơn hàng');
       });
-      if (res.status === 401) throw new Error('Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại');
-      if (!res.ok) throw new Error('Không tải được đơn hàng');
-      setOrders(await res.json());
-      setError(null);
-    } catch (e) {
-      setError((e as Error).message);
-    }
-  }, []);
+  };
 
-  useEffect(() => {
-    void load();
-    const t = setInterval(() => void load(), POLL_MS); // cập nhật trạng thái định kỳ
-    return () => clearInterval(t);
-  }, [load]);
+  const displayError =
+    token === null ? 'Bạn cần đăng nhập để xem đơn hàng' : error;
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-8">
       <h1 className="mb-6 font-serif text-3xl text-stone-900">Đơn hàng của tôi</h1>
 
-      {error && !orders && (
+      {displayError && !orders && (
         <div data-testid="orders-error" className="rounded-lg bg-red-50 p-4 text-red-700">
-          {error}{' '}
-          <button onClick={() => void load()} className="underline">
+          {displayError}{' '}
+          <button onClick={handleRetry} className="underline">
             Thử lại
           </button>
         </div>
       )}
 
-      {!error && orders === null && (
+      {!displayError && orders === null && (
         <div data-testid="orders-loading" className="animate-pulse space-y-4">
           <div className="h-32 rounded-xl bg-stone-200" />
           <div className="h-32 rounded-xl bg-stone-200" />

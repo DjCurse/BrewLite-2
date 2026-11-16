@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { PRODUCT_SELECTED_EVENT } from "@/lib/options";
@@ -16,7 +16,8 @@ export interface CartStorageItem {
 export function readCartItems(): CartStorageItem[] {
   if (typeof window === "undefined") return [];
   try {
-    const raw = localStorage.getItem("brewlite_cart");
+    const raw =
+      localStorage.getItem("brewlite_cart") || localStorage.getItem("cart");
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? parsed : [];
@@ -25,41 +26,63 @@ export function readCartItems(): CartStorageItem[] {
   }
 }
 
+const emptySubscribe = () => () => {};
+
+function subscribeHeaderStore(callback: () => void) {
+  window.addEventListener("storage", callback);
+  window.addEventListener(PRODUCT_SELECTED_EVENT, callback);
+  window.addEventListener("brewlite:cart-updated", callback);
+  window.addEventListener("cart-updated", callback);
+  window.addEventListener("brewlite:auth-updated", callback);
+
+  return () => {
+    window.removeEventListener("storage", callback);
+    window.removeEventListener(PRODUCT_SELECTED_EVENT, callback);
+    window.removeEventListener("brewlite:cart-updated", callback);
+    window.removeEventListener("cart-updated", callback);
+    window.removeEventListener("brewlite:auth-updated", callback);
+  };
+}
+
+function getCartCountSnapshot(): number {
+  return readCartItems().reduce(
+    (sum, item) => sum + (Number(item.quantity) || 0),
+    0,
+  );
+}
+
+function getAuthSnapshot(): boolean {
+  if (typeof window === "undefined") return false;
+  return Boolean(
+    localStorage.getItem("brewlite_access_token") ||
+      localStorage.getItem("access_token") ||
+      localStorage.getItem("accessToken") ||
+      localStorage.getItem("token"),
+  );
+}
+
 export function SiteHeader() {
   const router = useRouter();
-  const [mounted, setMounted] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [totalItems, setTotalItems] = useState(0);
   const [headerSearch, setHeaderSearch] = useState("");
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  useEffect(() => {
-    setMounted(true);
+  const mounted = useSyncExternalStore(
+    emptySubscribe,
+    () => true,
+    () => false,
+  );
 
-    const syncHeaderState = () => {
-      const token =
-        localStorage.getItem("access_token") || localStorage.getItem("token");
-      setIsLoggedIn(Boolean(token));
+  const totalItems = useSyncExternalStore(
+    subscribeHeaderStore,
+    getCartCountSnapshot,
+    () => 0,
+  );
 
-      const items = readCartItems();
-      const count = items.reduce(
-        (sum, item) => sum + (Number(item.quantity) || 0),
-        0,
-      );
-      setTotalItems(count);
-    };
-
-    syncHeaderState();
-    window.addEventListener("storage", syncHeaderState);
-    window.addEventListener(PRODUCT_SELECTED_EVENT, syncHeaderState);
-    window.addEventListener("brewlite:cart-updated", syncHeaderState);
-
-    return () => {
-      window.removeEventListener("storage", syncHeaderState);
-      window.removeEventListener(PRODUCT_SELECTED_EVENT, syncHeaderState);
-      window.removeEventListener("brewlite:cart-updated", syncHeaderState);
-    };
-  }, []);
+  const isLoggedIn = useSyncExternalStore(
+    subscribeHeaderStore,
+    getAuthSnapshot,
+    () => false,
+  );
 
   const handleHeaderSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,10 +96,13 @@ export function SiteHeader() {
   };
 
   const handleLogout = () => {
+    localStorage.removeItem("brewlite_access_token");
     localStorage.removeItem("access_token");
+    localStorage.removeItem("accessToken");
     localStorage.removeItem("token");
-    setIsLoggedIn(false);
-    window.location.href = "/login";
+    window.dispatchEvent(new Event("brewlite:auth-updated"));
+    router.push("/login");
+    router.refresh();
   };
 
   return (
