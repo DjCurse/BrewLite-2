@@ -7,6 +7,7 @@ import { ProductsModule } from './products/products.module';
 import { PaymentsModule } from './payments/payments.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
+import { OrderTrackingModule } from './orders/order-tracking.module';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
@@ -24,6 +25,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     PaymentsModule,
     AuthModule,
     UsersModule,
+    OrderTrackingModule,
   ],
   controllers: [AppController],
   providers: [AppService],
