@@ -6,9 +6,9 @@ interface ProductPageProps {
   params: Promise<{ id: string }>;
 }
 
-export default async function ProductPage({ params }: ProductPageProps) {
+export default function ProductPage({ params }: ProductPageProps) {
   return (
-    <>
+    <div className="flex min-h-screen flex-col bg-cream text-ink">
       <SiteHeader />
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 pb-10 pt-5 md:px-8 md:pt-8">
         <Suspense fallback={<ProductDetailLoading />}>
@@ -16,7 +16,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
         </Suspense>
       </main>
       <SiteFooter />
-    </>
+    </div>
   );
 }
 

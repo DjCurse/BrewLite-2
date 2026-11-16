@@ -101,7 +101,30 @@ function ProductOptions({ product }: { product: Product }) {
       toppings: toppingIds,
       quantity,
     };
+
+    try {
+      const raw = localStorage.getItem("brewlite_cart");
+      const cart: ProductSelectedDetail[] = raw ? JSON.parse(raw) : [];
+      const sortedToppings = [...toppingIds].sort().join(",");
+      const existingIndex = cart.findIndex(
+        (item) =>
+          String(item.productId) === String(product.id) &&
+          item.size === size &&
+          [...(item.toppings || [])].sort().join(",") === sortedToppings,
+      );
+
+      if (existingIndex > -1) {
+        cart[existingIndex].quantity += quantity;
+      } else {
+        cart.push(detail);
+      }
+      localStorage.setItem("brewlite_cart", JSON.stringify(cart));
+    } catch {
+      // Bỏ qua nếu trình duyệt chặn storage
+    }
+
     window.dispatchEvent(new CustomEvent(PRODUCT_SELECTED_EVENT, { detail }));
+    window.dispatchEvent(new Event("brewlite:cart-updated"));
     setAdded(true);
   }
 
