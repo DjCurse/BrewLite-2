@@ -4,6 +4,40 @@ import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import type { CreatePaymentDto } from './dto/create-payment.dto';
 
+const SIZE_SURCHARGE: Record<string, number> = {
+  S: 0,
+  M: 5000,
+  L: 10000,
+};
+
+const TOPPING_SURCHARGE: Record<string, number> = {
+  thach: 8000,
+  'thạch': 8000,
+  tran_chau: 8000,
+  'trân châu': 8000,
+  'trân châu đen': 8000,
+  'trân châu trắng': 8000,
+  pudding: 10000,
+  kem_cheese: 10000,
+  'kem cheese': 10000,
+};
+
+function calculateItemSurcharge(size?: string, toppings?: string[]): number {
+  const normalizedSize = size?.trim().toUpperCase();
+  const sizeExtra = normalizedSize ? (SIZE_SURCHARGE[normalizedSize] ?? 0) : 0;
+
+  const validToppings = (toppings ?? [])
+    .map((t) => t.trim().toLowerCase())
+    .filter((t) => t.length > 0 && t !== 'none' && t !== 'không');
+
+  const toppingsExtra = validToppings.reduce(
+    (sum, key) => sum + (TOPPING_SURCHARGE[key] ?? 8000),
+    0,
+  );
+
+  return sizeExtra + toppingsExtra;
+}
+
 @Injectable()
 export class PaymentsService {
   constructor(private readonly prisma: PrismaService) {}
@@ -29,7 +63,7 @@ export class PaymentsService {
         totalPrice: number;
       }[] = [];
 
-      // a. Kiểm tra tồn kho (stockQuantity) & tính tổng tiền
+      // a. Kiểm tra tồn kho (stockQuantity) & tính tổng tiền (gồm Size + Topping)
       for (const item of dto.items) {
         const product = await tx.product.findUnique({ where: { id: item.productId } });
         if (!product || !product.isActive || product.stockQuantity < item.quantity) {
@@ -38,7 +72,8 @@ export class PaymentsService {
           );
         }
 
-        const unitPrice = Number(product.price);
+        const surcharge = calculateItemSurcharge(item.size, item.toppings);
+        const unitPrice = Number(product.price) + surcharge;
         const lineTotal = unitPrice * item.quantity;
         totalAmount += lineTotal;
 
@@ -60,9 +95,12 @@ export class PaymentsService {
       let discountAmount = 0;
       let appliedPromotionId: string | null = null;
 
-      if (dto.promoCode) {
+      const normalizedPromoCode = dto.promoCode?.trim().toUpperCase();
+      if (normalizedPromoCode) {
         const now = new Date();
-        const promotion = await tx.promotion.findUnique({ where: { code: dto.promoCode } });
+        const promotion = await tx.promotion.findUnique({
+          where: { code: normalizedPromoCode },
+        });
 
         if (
           !promotion ||

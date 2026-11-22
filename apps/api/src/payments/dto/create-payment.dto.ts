@@ -19,6 +19,15 @@ export class OrderItemDto {
   @IsNumber()
   @Min(1)
   quantity: number;
+
+  @IsOptional()
+  @IsString()
+  size?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  toppings?: string[];
 }
 
 export class CreatePaymentDto {
@@ -37,5 +46,5 @@ export class CreatePaymentDto {
   promoCode?: string;
 
   @IsEnum(PaymentMethod)
-  paymentMethod: PaymentMethod; 
+  paymentMethod: PaymentMethod;
 }

@@ -3,6 +3,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState, useSyncExternalStore } from 'react';
+import { SiteFooter, SiteHeader } from '@/components/site-header';
 import OrderStepper, { type OrderStatus } from '../../components/OrderStepper';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
@@ -56,7 +57,16 @@ async function fetchMyOrders(authToken: string): Promise<Order[]> {
   if (!res.ok) {
     throw new Error('Không tải được đơn hàng');
   }
-  return (await res.json()) as Order[];
+  const payload: unknown = await res.json();
+  if (Array.isArray(payload)) return payload as Order[];
+  if (
+    payload &&
+    typeof payload === 'object' &&
+    Array.isArray((payload as { data?: unknown }).data)
+  ) {
+    return (payload as { data: Order[] }).data;
+  }
+  return [];
 }
 
 export default function OrdersPage() {
@@ -112,58 +122,94 @@ export default function OrdersPage() {
 
   const displayError =
     token === null ? 'Bạn cần đăng nhập để xem đơn hàng' : error;
+  const needsLogin =
+    token === null || Boolean(error && error.toLowerCase().includes('đăng nhập'));
 
   return (
-    <main className="mx-auto max-w-2xl px-4 py-8">
-      <h1 className="mb-6 font-serif text-3xl text-stone-900">Đơn hàng của tôi</h1>
+    <div className="flex min-h-screen flex-col bg-cream text-ink">
+      <SiteHeader />
 
-      {displayError && !orders && (
-        <div data-testid="orders-error" className="rounded-lg bg-red-50 p-4 text-red-700">
-          {displayError}{' '}
-          <button onClick={handleRetry} className="underline">
-            Thử lại
-          </button>
-        </div>
-      )}
-
-      {!displayError && orders === null && (
-        <div data-testid="orders-loading" className="animate-pulse space-y-4">
-          <div className="h-32 rounded-xl bg-stone-200" />
-          <div className="h-32 rounded-xl bg-stone-200" />
-        </div>
-      )}
-
-      {orders && orders.length === 0 && (
-        <div data-testid="orders-empty" className="rounded-xl bg-stone-100 p-8 text-center text-stone-600">
-          Bạn chưa có đơn hàng nào.{' '}
-          <Link href="/#menu" className="font-medium text-emerald-800 underline">
-            Xem menu
+      <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-8">
+        <div className="mb-6 flex items-center justify-between gap-3">
+          <h1 className="font-serif text-3xl text-stone-900">Đơn hàng của tôi</h1>
+          <Link
+            href="/#menu"
+            className="text-sm font-medium text-emerald-800 hover:underline"
+          >
+            + Đặt thêm món
           </Link>
         </div>
-      )}
 
-      <ul className="space-y-5">
-        {orders?.map((o) => (
-          <li key={o.id} data-testid="order-card" className="rounded-xl border border-stone-200 bg-white p-5 shadow-sm">
-            <div className="mb-4 flex items-center justify-between text-sm text-stone-500">
-              <span>#{o.id.slice(0, 8)}</span>
-              <span>{new Date(o.createdAt).toLocaleString('vi-VN')}</span>
-            </div>
-            <OrderStepper status={o.status} />
-            <ul className="mt-5 divide-y divide-stone-100 text-sm">
-              {o.items.map((it) => (
-                <li key={it.id} className="flex justify-between py-1.5">
-                  <span>
-                    {it.quantity} × {it.product?.name ?? 'Sản phẩm'}
-                  </span>
-                  <span>{vnd(it.totalPrice ?? Number(it.unitPrice) * it.quantity)}</span>
-                </li>
-              ))}
-            </ul>
-            <p className="mt-3 text-right font-semibold">Tổng: {vnd(o.finalAmount)}</p>
-          </li>
-        ))}
-      </ul>
-    </main>
+        {displayError && !orders && (
+          <div
+            data-testid="orders-error"
+            className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-red-50 p-4 text-red-700"
+          >
+            <span>
+              {displayError}{' '}
+              <button onClick={handleRetry} className="underline">
+                Thử lại
+              </button>
+            </span>
+            {needsLogin && (
+              <Link
+                href="/login?returnTo=/orders"
+                className="rounded-lg bg-emerald-800 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-emerald-900"
+              >
+                Đăng nhập
+              </Link>
+            )}
+          </div>
+        )}
+
+        {!displayError && orders === null && (
+          <div data-testid="orders-loading" className="animate-pulse space-y-4">
+            <div className="h-32 rounded-xl bg-stone-200" />
+            <div className="h-32 rounded-xl bg-stone-200" />
+          </div>
+        )}
+
+        {orders && orders.length === 0 && (
+          <div
+            data-testid="orders-empty"
+            className="rounded-xl border border-stone-200 bg-white p-8 text-center text-stone-600"
+          >
+            Bạn chưa có đơn hàng nào.{' '}
+            <Link href="/#menu" className="font-medium text-emerald-800 underline">
+              Xem menu
+            </Link>
+          </div>
+        )}
+
+        <ul className="space-y-5">
+          {orders?.map((o) => (
+            <li
+              key={o.id}
+              data-testid="order-card"
+              className="rounded-xl border border-stone-200 bg-white p-5 shadow-sm"
+            >
+              <div className="mb-4 flex items-center justify-between text-sm text-stone-500">
+                <span>#{o.id.slice(0, 8)}</span>
+                <span>{new Date(o.createdAt).toLocaleString('vi-VN')}</span>
+              </div>
+              <OrderStepper status={o.status} />
+              <ul className="mt-5 divide-y divide-stone-100 text-sm">
+                {o.items.map((it) => (
+                  <li key={it.id} className="flex justify-between py-1.5">
+                    <span>
+                      {it.quantity} × {it.product?.name ?? 'Sản phẩm'}
+                    </span>
+                    <span>{vnd(it.totalPrice ?? Number(it.unitPrice) * it.quantity)}</span>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-3 text-right font-semibold">Tổng: {vnd(o.finalAmount)}</p>
+            </li>
+          ))}
+        </ul>
+      </main>
+
+      <SiteFooter />
+    </div>
   );
 }
