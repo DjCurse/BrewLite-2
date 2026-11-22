@@ -2,6 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 type UserProfile = {
   name: string;
@@ -40,7 +41,8 @@ function getReturnPath() {
   return null;
 }
 
-export default function Home() {
+export default function LoginPage() {
+  const router = useRouter();
   const [mode, setMode] = useState<"login" | "register">("login");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -105,15 +107,21 @@ export default function Home() {
         );
       }
 
-      localStorage.setItem("brewlite_access_token", result.accessToken);
+      const token: string = result.accessToken ?? result.access_token ?? "";
+      if (!token) throw new Error("Máy chủ không trả về mã xác thực.");
+
+      localStorage.setItem("brewlite_access_token", token);
+      window.dispatchEvent(new Event("brewlite:auth-updated"));
+
       const meResponse = await fetch(`${apiUrl}/users/me`, {
-        headers: { Authorization: `Bearer ${result.accessToken}` },
+        headers: { Authorization: `Bearer ${token}` },
       });
       if (!meResponse.ok) throw new Error("Đăng nhập được nhưng chưa tải được hồ sơ.");
       const userProfile: UserProfile = await meResponse.json();
       const returnPath = getReturnPath();
       if (returnPath) {
-        window.location.replace(returnPath);
+        router.replace(returnPath);
+        router.refresh();
         return;
       }
 
@@ -132,6 +140,10 @@ export default function Home() {
 
   function signOut() {
     localStorage.removeItem("brewlite_access_token");
+    localStorage.removeItem("access_token");
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("token");
+    window.dispatchEvent(new Event("brewlite:auth-updated"));
     setProfile(null);
     setMode("login");
   }
@@ -166,7 +178,24 @@ export default function Home() {
                 <span>Điểm tích lũy</span>
                 <strong>{profile.loyaltyPoints}<small> điểm</small></strong>
               </div>
-              <button className="submit-button" onClick={signOut}>Đăng xuất</button>
+              <div className="mt-4 flex flex-col gap-2.5">
+                <Link href="/#menu" className="submit-button text-center">
+                  Khám phá thực đơn ↗
+                </Link>
+                <Link
+                  href="/orders"
+                  className="inline-flex min-h-11 items-center justify-center rounded-xl border border-stone-300 px-4 text-sm font-semibold text-stone-800 hover:bg-stone-50"
+                >
+                  Đơn hàng của tôi
+                </Link>
+                <button
+                  type="button"
+                  onClick={signOut}
+                  className="mt-1 text-xs font-medium text-red-600 hover:underline"
+                >
+                  Đăng xuất
+                </button>
+              </div>
             </div>
           ) : (
             <>
