@@ -9,9 +9,16 @@ export interface CheckoutCartItem {
   quantity: number;
 }
 
+export interface CreatePaymentItemPayload {
+  productId: string;
+  quantity: number;
+  size?: string;
+  toppings?: string[];
+}
+
 export interface CreatePaymentPayload {
   userId: string;
-  items: { productId: string; quantity: number }[];
+  items: CreatePaymentItemPayload[];
   promoCode?: string;
   paymentMethod: PaymentMethod;
 }
@@ -69,5 +76,5 @@ export async function submitPayment(
     throw new Error(msg);
   }
 
-  return data as PaymentOrderResponse;
+  return (data.order ?? data.data ?? data) as PaymentOrderResponse;
 }
