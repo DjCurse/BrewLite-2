@@ -94,6 +94,7 @@ function ProductOptions({ product }: { product: Product }) {
   }
 
   function handleAdd() {
+    const computedUnitPrice = unitPrice(selection);
     const detail: ProductSelectedDetail = {
       productId: product.id,
       productName: product.name,
@@ -102,12 +103,20 @@ function ProductOptions({ product }: { product: Product }) {
       quantity,
     };
 
+    const cartEntry = {
+      ...detail,
+      name: product.name,
+      price: computedUnitPrice,
+      basePrice: computedUnitPrice,
+      imageUrl: product.imageUrl ?? undefined,
+    };
+
     try {
       const raw = localStorage.getItem("brewlite_cart");
-      const cart: ProductSelectedDetail[] = raw ? JSON.parse(raw) : [];
+      const cart = raw ? JSON.parse(raw) : [];
       const sortedToppings = [...toppingIds].sort().join(",");
       const existingIndex = cart.findIndex(
-        (item) =>
+        (item: ProductSelectedDetail) =>
           String(item.productId) === String(product.id) &&
           item.size === size &&
           [...(item.toppings || [])].sort().join(",") === sortedToppings,
@@ -115,16 +124,20 @@ function ProductOptions({ product }: { product: Product }) {
 
       if (existingIndex > -1) {
         cart[existingIndex].quantity += quantity;
+        cart[existingIndex].price = computedUnitPrice;
+        cart[existingIndex].basePrice = computedUnitPrice;
       } else {
-        cart.push(detail);
+        cart.push(cartEntry);
       }
       localStorage.setItem("brewlite_cart", JSON.stringify(cart));
+      localStorage.setItem("cart", JSON.stringify(cart));
     } catch {
       // Bỏ qua nếu trình duyệt chặn storage
     }
 
     window.dispatchEvent(new CustomEvent(PRODUCT_SELECTED_EVENT, { detail }));
     window.dispatchEvent(new Event("brewlite:cart-updated"));
+    window.dispatchEvent(new Event("cart-updated"));
     setAdded(true);
   }
 
