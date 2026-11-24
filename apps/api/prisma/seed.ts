@@ -1,13 +1,12 @@
 import { PrismaClient } from '@prisma/client';
-import { seedProducts } from './seed-data';
+import * as bcrypt from 'bcrypt';
+import { seedAccounts, seedProducts, seedPromotions } from './seed-data';
 
-type SeedClient = Pick<PrismaClient, 'product'>;
+type MenuSeedClient = Pick<PrismaClient, 'product'>;
+type UserSeedClient = Pick<PrismaClient, 'user'>;
+type PromoSeedClient = Pick<PrismaClient, 'promotion'>;
 
-/**
- * Nạp menu mẫu. Chạy lặp lại an toàn: sản phẩm đã có (cùng name + category)
- * được cập nhật, sản phẩm chưa có được tạo mới — không bao giờ tạo trùng.
- */
-export async function seedMenu(prisma: SeedClient) {
+export async function seedMenu(prisma: MenuSeedClient) {
   let created = 0;
   let updated = 0;
 
@@ -32,6 +31,49 @@ export async function seedMenu(prisma: SeedClient) {
   return { created, updated };
 }
 
+export async function seedUsers(prisma: UserSeedClient) {
+  for (const account of seedAccounts) {
+    const passwordHash = await bcrypt.hash(account.plainPassword, 10);
+    await prisma.user.upsert({
+      where: { email: account.email },
+      update: {
+        name: account.name,
+        role: account.role,
+        passwordHash,
+      },
+      create: {
+        email: account.email,
+        name: account.name,
+        role: account.role,
+        passwordHash,
+        loyaltyPoints: account.loyaltyPoints,
+      },
+    });
+  }
+  return seedAccounts.length;
+}
+
+export async function seedPromotionsData(prisma: PromoSeedClient) {
+  for (const promo of seedPromotions) {
+    await prisma.promotion.upsert({
+      where: { code: promo.code },
+      update: {
+        type: promo.type,
+        value: promo.value,
+        minOrderValue: promo.minOrderValue,
+        startDate: promo.startDate,
+        endDate: promo.endDate,
+        isActive: promo.isActive,
+        staffOnly: promo.staffOnly ?? false,
+        maxUses: promo.maxUses ?? null,
+        perUserLimit: promo.perUserLimit ?? null,
+      },
+      create: promo,
+    });
+  }
+  return seedPromotions.length;
+}
+
 async function main() {
   const prisma = new PrismaClient({
     datasourceUrl: process.env.DATABASE_URL,
@@ -39,13 +81,16 @@ async function main() {
 
   try {
     const { created, updated } = await seedMenu(prisma);
-    console.log(`Seed menu xong: tạo mới ${created}, cập nhật ${updated}.`);
+    const userCount = await seedUsers(prisma);
+    const promoCount = await seedPromotionsData(prisma);
+    console.log(
+      `Seed hoàn tất: menu (tạo mới ${created}, cập nhật ${updated}), ${userCount} tài khoản, ${promoCount} mã khuyến mãi.`,
+    );
   } finally {
     await prisma.$disconnect();
   }
 }
 
-// Chỉ chạy khi gọi trực tiếp (`prisma db seed`), không chạy khi được import trong test.
 if (process.argv[1]?.endsWith('seed.ts')) {
   main().catch((error) => {
     console.error('Seed failed:', error);

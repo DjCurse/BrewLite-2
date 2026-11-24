@@ -1,16 +1,44 @@
 ﻿"use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { clearAuthTokens, isJwtExpired } from "@/components/site-header";
 
 type UserProfile = {
+  id?: string;
   name: string;
   email: string;
+  role?: string;
   loyaltyPoints: number;
 };
 
-const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+const STAFF_ROLES = new Set(["STAFF", "ADMIN", "MANAGER"]);
+
+function extractRoleFromJwt(token: string): string {
+  try {
+    const parts = token.split(".");
+    if (parts.length < 2) return "";
+    const base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), "=");
+    const payload = JSON.parse(atob(padded)) as { role?: string };
+    return String(payload.role ?? "").trim().toUpperCase();
+  } catch {
+    return "";
+  }
+}
+
+function resolveUserRole(profileRole: unknown, token: string): string {
+  const fromProfile = typeof profileRole === "string" ? profileRole.trim().toUpperCase() : "";
+  if (fromProfile) return fromProfile;
+  const fromJwt = extractRoleFromJwt(token);
+  return fromJwt || "CUSTOMER";
+}
+
+function isStaffRole(role?: string): boolean {
+  return Boolean(role && STAFF_ROLES.has(role.trim().toUpperCase()));
+}
 
 function getReturnPath() {
   const params = new URLSearchParams(window.location.search);
@@ -51,6 +79,43 @@ export default function LoginPage() {
   const [busy, setBusy] = useState(false);
   const [profile, setProfile] = useState<UserProfile | null>(null);
 
+  // Tự động tải thông tin tài khoản nếu người dùng đã đăng nhập và bấm "Thông tin người dùng"
+  useEffect(() => {
+    const token =
+      localStorage.getItem("brewlite_access_token")?.trim() ||
+      localStorage.getItem("access_token")?.trim() ||
+      localStorage.getItem("token")?.trim();
+
+    if (!token || isJwtExpired(token)) return;
+
+    let active = true;
+    fetch(`${API_URL}/users/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+    })
+      .then(async (res) => {
+        if (!active) return;
+        if (res.status === 401) {
+          clearAuthTokens();
+          localStorage.removeItem("brewlite_user_role");
+          return;
+        }
+        if (!res.ok) return;
+
+        const data = (await res.json()) as UserProfile;
+        const role = resolveUserRole(data.role, token);
+        localStorage.setItem("brewlite_user_role", role);
+        setProfile({ ...data, role });
+      })
+      .catch(() => {
+        // Bỏ qua nếu mạng gián đoạn
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
@@ -89,7 +154,7 @@ export default function LoginPage() {
     setBusy(true);
     try {
       const endpoint = mode === "register" ? "register" : "login";
-      const response = await fetch(`${apiUrl}/auth/${endpoint}`, {
+      const response = await fetch(`${API_URL}/auth/${endpoint}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(
@@ -111,13 +176,17 @@ export default function LoginPage() {
       if (!token) throw new Error("Máy chủ không trả về mã xác thực.");
 
       localStorage.setItem("brewlite_access_token", token);
-      window.dispatchEvent(new Event("brewlite:auth-updated"));
 
-      const meResponse = await fetch(`${apiUrl}/users/me`, {
+      const meResponse = await fetch(`${API_URL}/users/me`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!meResponse.ok) throw new Error("Đăng nhập được nhưng chưa tải được hồ sơ.");
       const userProfile: UserProfile = await meResponse.json();
+
+      const resolvedRole = resolveUserRole(userProfile.role ?? result.user?.role, token);
+      localStorage.setItem("brewlite_user_role", resolvedRole);
+      window.dispatchEvent(new Event("brewlite:auth-updated"));
+
       const returnPath = getReturnPath();
       if (returnPath) {
         router.replace(returnPath);
@@ -125,7 +194,14 @@ export default function LoginPage() {
         return;
       }
 
-      setProfile(userProfile);
+      // Nhân viên / Quản lý đăng nhập xong chuyển thẳng sang màn hình quản lý đơn hàng của quầy
+      if (isStaffRole(resolvedRole)) {
+        router.replace("/admin/orders");
+        router.refresh();
+        return;
+      }
+
+      setProfile({ ...userProfile, role: resolvedRole });
       setPassword("");
     } catch (requestError) {
       setError(
@@ -139,14 +215,13 @@ export default function LoginPage() {
   }
 
   function signOut() {
-    localStorage.removeItem("brewlite_access_token");
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("accessToken");
-    localStorage.removeItem("token");
-    window.dispatchEvent(new Event("brewlite:auth-updated"));
+    localStorage.removeItem("brewlite_user_role");
+    clearAuthTokens();
     setProfile(null);
     setMode("login");
   }
+
+  const staffAccount = isStaffRole(profile?.role);
 
   return (
     <main className="auth-shell">
@@ -170,24 +245,51 @@ export default function LoginPage() {
         <div className="form-wrap">
           {profile ? (
             <div className="profile-card">
-              <span className="eyebrow">TÀI KHOẢN CỦA BẠN</span>
+              <span className="eyebrow">
+                {staffAccount ? "TÀI KHOẢN NHÂN VIÊN / QUẢN LÝ" : "TÀI KHOẢN CỦA BẠN"}
+              </span>
               <div className="avatar">{profile.name.charAt(0).toUpperCase()}</div>
               <h2>Chào {profile.name}!</h2>
               <p className="profile-email">{profile.email}</p>
-              <div className="points-card">
-                <span>Điểm tích lũy</span>
-                <strong>{profile.loyaltyPoints}<small> điểm</small></strong>
-              </div>
+
+              {staffAccount ? (
+                <div className="points-card">
+                  <span>Vai trò hệ thống</span>
+                  <strong>{profile.role}</strong>
+                </div>
+              ) : (
+                <div className="points-card">
+                  <span>Điểm tích lũy</span>
+                  <strong>{profile.loyaltyPoints}<small> điểm</small></strong>
+                </div>
+              )}
+
               <div className="mt-4 flex flex-col gap-2.5">
-                <Link href="/#menu" className="submit-button text-center">
-                  Khám phá thực đơn ↗
-                </Link>
-                <Link
-                  href="/orders"
-                  className="inline-flex min-h-11 items-center justify-center rounded-xl border border-stone-300 px-4 text-sm font-semibold text-stone-800 hover:bg-stone-50"
-                >
-                  Đơn hàng của tôi
-                </Link>
+                {staffAccount ? (
+                  <>
+                    <Link href="/admin/orders" className="submit-button text-center">
+                      Quản lý trạng thái đơn hàng ↗
+                    </Link>
+                    <Link
+                      href="/#menu"
+                      className="inline-flex min-h-11 items-center justify-center rounded-xl border border-stone-300 px-4 text-sm font-semibold text-stone-800 hover:bg-stone-50"
+                    >
+                      Tạo đơn cho khách tại quầy
+                    </Link>
+                  </>
+                ) : (
+                  <>
+                    <Link href="/#menu" className="submit-button text-center">
+                      Khám phá thực đơn ↗
+                    </Link>
+                    <Link
+                      href="/orders"
+                      className="inline-flex min-h-11 items-center justify-center rounded-xl border border-stone-300 px-4 text-sm font-semibold text-stone-800 hover:bg-stone-50"
+                    >
+                      Đơn hàng của tôi
+                    </Link>
+                  </>
+                )}
                 <button
                   type="button"
                   onClick={signOut}

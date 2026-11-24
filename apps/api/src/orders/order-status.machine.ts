@@ -1,13 +1,11 @@
 import type { OrderStatus } from '@prisma/client';
 
-/**
- * Máy trạng thái theo schema hiện tại:
- * PENDING (Đã đặt) -> PAID (Đang pha chế) -> COMPLETED (Sẵn sàng nhận)
- * Có thể huỷ khi PENDING hoặc PAID.
- */
 export const ORDER_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
-  PENDING: ['PAID', 'CANCELLED'],
-  PAID: ['COMPLETED', 'CANCELLED'],
+  PENDING: ['PAID', 'CONFIRMED', 'CANCELLED'],
+  PAID: ['CONFIRMED', 'PREPARING', 'READY', 'COMPLETED', 'CANCELLED'],
+  CONFIRMED: ['PREPARING', 'READY', 'COMPLETED', 'CANCELLED'],
+  PREPARING: ['READY', 'COMPLETED', 'CANCELLED'],
+  READY: ['COMPLETED', 'CANCELLED'],
   COMPLETED: [],
   CANCELLED: [],
 };

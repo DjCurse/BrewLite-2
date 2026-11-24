@@ -1,13 +1,22 @@
-// apps/web/app/orders/page.tsx
-'use client';
+"use client";
 
-import Link from 'next/link';
-import { useEffect, useState, useSyncExternalStore } from 'react';
-import { SiteFooter, SiteHeader } from '@/components/site-header';
-import OrderStepper, { type OrderStatus } from '../../components/OrderStepper';
+import Link from "next/link";
+import { useEffect, useState, useSyncExternalStore } from "react";
+import {
+  clearAuthTokens,
+  isJwtExpired,
+  SiteFooter,
+  SiteHeader,
+} from "@/components/site-header";
+import OrderStepper, { type OrderStatus } from "../../components/OrderStepper";
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
-const TOKEN_KEYS = ['brewlite_access_token', 'access_token', 'accessToken', 'token'];
+const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+const TOKEN_KEYS = [
+  "brewlite_access_token",
+  "access_token",
+  "accessToken",
+  "token",
+];
 const POLL_MS = 5000;
 
 interface OrderItem {
@@ -26,42 +35,45 @@ interface Order {
 }
 
 const vnd = (n: number | string) =>
-  new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(n));
+  new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(
+    Number(n),
+  );
 
 function getToken(): string | null {
-  if (typeof window === 'undefined') return null;
+  if (typeof window === "undefined") return null;
   for (const k of TOKEN_KEYS) {
-    const v = localStorage.getItem(k);
-    if (v) return v;
+    const v = localStorage.getItem(k)?.trim();
+    if (v && !isJwtExpired(v)) return v;
   }
   return null;
 }
 
 function subscribeAuth(callback: () => void) {
-  window.addEventListener('storage', callback);
-  window.addEventListener('brewlite:auth-updated', callback);
+  window.addEventListener("storage", callback);
+  window.addEventListener("brewlite:auth-updated", callback);
   return () => {
-    window.removeEventListener('storage', callback);
-    window.removeEventListener('brewlite:auth-updated', callback);
+    window.removeEventListener("storage", callback);
+    window.removeEventListener("brewlite:auth-updated", callback);
   };
 }
 
 async function fetchMyOrders(authToken: string): Promise<Order[]> {
   const res = await fetch(`${API}/orders/me`, {
     headers: { Authorization: `Bearer ${authToken}` },
-    cache: 'no-store',
+    cache: "no-store",
   });
   if (res.status === 401) {
-    throw new Error('Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại');
+    clearAuthTokens();
+    throw new Error("Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại");
   }
   if (!res.ok) {
-    throw new Error('Không tải được đơn hàng');
+    throw new Error("Không tải được đơn hàng");
   }
   const payload: unknown = await res.json();
   if (Array.isArray(payload)) return payload as Order[];
   if (
     payload &&
-    typeof payload === 'object' &&
+    typeof payload === "object" &&
     Array.isArray((payload as { data?: unknown }).data)
   ) {
     return (payload as { data: Order[] }).data;
@@ -92,7 +104,7 @@ export default function OrdersPage() {
         })
         .catch((e: unknown) => {
           if (!active) return;
-          setError(e instanceof Error ? e.message : 'Không tải được đơn hàng');
+          setError(e instanceof Error ? e.message : "Không tải được đơn hàng");
         });
     };
 
@@ -107,7 +119,8 @@ export default function OrdersPage() {
   const handleRetry = () => {
     const currentToken = getToken();
     if (!currentToken) {
-      setError('Bạn cần đăng nhập để xem đơn hàng');
+      clearAuthTokens();
+      setError("Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại");
       return;
     }
     fetchMyOrders(currentToken)
@@ -116,14 +129,15 @@ export default function OrdersPage() {
         setError(null);
       })
       .catch((e: unknown) => {
-        setError(e instanceof Error ? e.message : 'Không tải được đơn hàng');
+        setError(e instanceof Error ? e.message : "Không tải được đơn hàng");
       });
   };
 
   const displayError =
-    token === null ? 'Bạn cần đăng nhập để xem đơn hàng' : error;
+    error ?? (token === null ? "Bạn cần đăng nhập để xem đơn hàng" : null);
   const needsLogin =
-    token === null || Boolean(error && error.toLowerCase().includes('đăng nhập'));
+    token === null ||
+    Boolean(displayError && displayError.toLowerCase().includes("đăng nhập"));
 
   return (
     <div className="flex min-h-screen flex-col bg-cream text-ink">
@@ -131,7 +145,9 @@ export default function OrdersPage() {
 
       <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-8">
         <div className="mb-6 flex items-center justify-between gap-3">
-          <h1 className="font-serif text-3xl text-stone-900">Đơn hàng của tôi</h1>
+          <h1 className="font-serif text-3xl text-stone-900">
+            Đơn hàng của tôi
+          </h1>
           <Link
             href="/#menu"
             className="text-sm font-medium text-emerald-800 hover:underline"
@@ -146,7 +162,7 @@ export default function OrdersPage() {
             className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-red-50 p-4 text-red-700"
           >
             <span>
-              {displayError}{' '}
+              {displayError}{" "}
               <button onClick={handleRetry} className="underline">
                 Thử lại
               </button>
@@ -174,8 +190,11 @@ export default function OrdersPage() {
             data-testid="orders-empty"
             className="rounded-xl border border-stone-200 bg-white p-8 text-center text-stone-600"
           >
-            Bạn chưa có đơn hàng nào.{' '}
-            <Link href="/#menu" className="font-medium text-emerald-800 underline">
+            Bạn chưa có đơn hàng nào.{" "}
+            <Link
+              href="/#menu"
+              className="font-medium text-emerald-800 underline"
+            >
               Xem menu
             </Link>
           </div>
@@ -190,20 +209,24 @@ export default function OrdersPage() {
             >
               <div className="mb-4 flex items-center justify-between text-sm text-stone-500">
                 <span>#{o.id.slice(0, 8)}</span>
-                <span>{new Date(o.createdAt).toLocaleString('vi-VN')}</span>
+                <span>{new Date(o.createdAt).toLocaleString("vi-VN")}</span>
               </div>
               <OrderStepper status={o.status} />
               <ul className="mt-5 divide-y divide-stone-100 text-sm">
                 {o.items.map((it) => (
                   <li key={it.id} className="flex justify-between py-1.5">
                     <span>
-                      {it.quantity} × {it.product?.name ?? 'Sản phẩm'}
+                      {it.quantity} × {it.product?.name ?? "Sản phẩm"}
                     </span>
-                    <span>{vnd(it.totalPrice ?? Number(it.unitPrice) * it.quantity)}</span>
+                    <span>
+                      {vnd(it.totalPrice ?? Number(it.unitPrice) * it.quantity)}
+                    </span>
                   </li>
                 ))}
               </ul>
-              <p className="mt-3 text-right font-semibold">Tổng: {vnd(o.finalAmount)}</p>
+              <p className="mt-3 text-right font-semibold">
+                Tổng: {vnd(o.finalAmount)}
+              </p>
             </li>
           ))}
         </ul>

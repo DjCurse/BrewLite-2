@@ -43,16 +43,17 @@ function MockPaymentContent() {
       let bodyPayload: Record<string, unknown>;
       if (rawPayload) {
         const parsed = JSON.parse(rawPayload) as Record<string, unknown>;
+        const restPayload = { ...parsed };
+        delete restPayload.promoCode;
+
         bodyPayload = {
-          ...parsed,
+          ...restPayload,
           paymentMethod: "MOMO",
-          promoCode: promo || parsed.promoCode || undefined,
         };
       } else {
         bodyPayload = {
           orderId,
           paymentMethod: "MOMO",
-          promoCode: promo || undefined,
         };
       }
 
@@ -89,49 +90,7 @@ function MockPaymentContent() {
     }
   }
 
-  async function handleConfirmWithoutPromo() {
-    if (!rawPayload) return;
-    setIsPaying(true);
-    setError("");
-
-    try {
-      const parsed = JSON.parse(rawPayload) as Record<string, unknown>;
-      const res = await fetch(`${API_BASE_URL}/payments`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          "Idempotency-Key": `${idem}_nopromo`,
-        },
-        body: JSON.stringify({
-          ...parsed,
-          paymentMethod: "MOMO",
-          promoCode: undefined,
-        }),
-      });
-
-      const data = (await res.json()) as Record<string, unknown>;
-      if (!res.ok) {
-        const msg = Array.isArray(data.message)
-          ? data.message.join(" ")
-          : String(data.message ?? "Thanh toán MoMo thất bại.");
-        throw new Error(msg);
-      }
-
-      const resolved = (data.order ?? data.data ?? data) as Record<string, unknown>;
-      if (resolved?.id) setCreatedOrderId(String(resolved.id));
-      if (resolved?.finalAmount !== undefined) {
-        setPaidAmount(Number(resolved.finalAmount));
-      }
-      setIsSuccess(true);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Không thể kết nối máy chủ thanh toán.");
-    } finally {
-      setIsPaying(false);
-    }
-  }
-
-  const finalDisplayAmount = paidAmount ?? amount;
+  const finalDisplayAmount = amount > 0 ? amount : (paidAmount ?? 0);
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-cream px-4 py-8 text-ink">
@@ -197,19 +156,9 @@ function MockPaymentContent() {
             {error && (
               <div
                 role="alert"
-                className="mt-4 space-y-2.5 rounded-2xl border border-red-200 bg-red-50 p-3.5 text-xs text-red-700"
+                className="mt-4 rounded-2xl border border-red-200 bg-red-50 p-3.5 text-xs text-red-700"
               >
                 <p>{error}</p>
-                {promo && rawPayload && (
-                  <button
-                    type="button"
-                    disabled={isPaying}
-                    onClick={handleConfirmWithoutPromo}
-                    className="w-full rounded-xl border border-red-300 bg-white px-3 py-2 text-xs font-semibold text-red-800 transition hover:bg-red-100 disabled:opacity-50"
-                  >
-                    Tiếp tục thanh toán giá gốc (bỏ qua mã {promo})
-                  </button>
-                )}
               </div>
             )}
 

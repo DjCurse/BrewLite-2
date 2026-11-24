@@ -1,6 +1,6 @@
 import { jest } from '@jest/globals';
-import { seedMenu } from './seed';
-import { seedProducts } from './seed-data';
+import { seedMenu, seedPromotionsData, seedUsers } from './seed';
+import { seedAccounts, seedProducts, seedPromotions } from './seed-data';
 
 type AnyFn = (...args: any[]) => Promise<any>;
 
@@ -17,10 +17,16 @@ function makePrisma(existing: Array<{ name: string; category: string }>) {
       create: jest.fn<AnyFn>().mockResolvedValue({}),
       update: jest.fn<AnyFn>().mockResolvedValue({}),
     },
+    user: {
+      upsert: jest.fn<AnyFn>().mockResolvedValue({}),
+    },
+    promotion: {
+      upsert: jest.fn<AnyFn>().mockResolvedValue({}),
+    },
   };
 }
 
-describe('seedMenu', () => {
+describe('seedMenu, seedUsers & seedPromotionsData', () => {
   it('dữ liệu mẫu không có sản phẩm trùng (name + category)', () => {
     const keys = seedProducts.map((p) => `${p.category}::${p.name}`);
     expect(new Set(keys).size).toBe(keys.length);
@@ -43,5 +49,23 @@ describe('seedMenu', () => {
 
     expect(result).toEqual({ created: 0, updated: seedProducts.length });
     expect(prisma.product.create).not.toHaveBeenCalled();
+  });
+
+  it('nạp đầy đủ tài khoản STAFF, ADMIN và CUSTOMER', async () => {
+    const prisma = makePrisma([]);
+
+    const count = await seedUsers(prisma as never);
+
+    expect(count).toBe(seedAccounts.length);
+    expect(prisma.user.upsert).toHaveBeenCalledTimes(seedAccounts.length);
+  });
+
+  it('nạp đầy đủ mã khuyến mãi công khai và mã nội bộ nhân viên', async () => {
+    const prisma = makePrisma([]);
+
+    const count = await seedPromotionsData(prisma as never);
+
+    expect(count).toBe(seedPromotions.length);
+    expect(prisma.promotion.upsert).toHaveBeenCalledTimes(seedPromotions.length);
   });
 });
