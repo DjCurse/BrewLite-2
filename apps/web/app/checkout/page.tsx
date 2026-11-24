@@ -219,7 +219,10 @@ export default function CheckoutPage() {
   const [promoCode, setPromoCode] = useState<string>(getInitialPromoCode);
   const [availablePromos, setAvailablePromos] = useState<AvailablePromotion[]>([]);
   const [validatedPromo, setValidatedPromo] = useState<ValidatedPromoResult | null>(null);
-  const [promoError, setPromoError] = useState("");
+  const [promoErrorState, setPromoErrorState] = useState<{
+    code: string;
+    message: string;
+  } | null>(null);
   const [validatingPromo, setValidatingPromo] = useState(false);
 
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("MOMO");
@@ -322,17 +325,13 @@ export default function CheckoutPage() {
   const verifyPromoCodeWithApi = useCallback(
     async (codeToCheck: string, currentSubtotal: number) => {
       const clean = codeToCheck.trim().toUpperCase();
-      if (!clean) {
-        setValidatedPromo(null);
-        setPromoError("");
-        return;
-      }
+      if (!clean) return;
 
       const token = getValidAccessToken();
       if (!token || currentSubtotal <= 0) return;
 
       setValidatingPromo(true);
-      setPromoError("");
+      setPromoErrorState(null);
       try {
         const res = await fetch(`${API_URL}/promotions/validate`, {
           method: "POST",
@@ -351,15 +350,21 @@ export default function CheckoutPage() {
             ? data.message.join(", ")
             : data.message;
           setValidatedPromo(null);
-          setPromoError(msg || "Mã khuyến mãi không hợp lệ hoặc đã hết lượt.");
+          setPromoErrorState({
+            code: clean,
+            message: msg || "Mã khuyến mãi không hợp lệ hoặc đã hết lượt.",
+          });
           return;
         }
 
         setValidatedPromo(data);
-        setPromoError("");
+        setPromoErrorState(null);
       } catch {
         setValidatedPromo(null);
-        setPromoError("Không kiểm tra được mã khuyến mãi lúc này.");
+        setPromoErrorState({
+          code: clean,
+          message: "Không kiểm tra được mã khuyến mãi lúc này.",
+        });
       } finally {
         setValidatingPromo(false);
       }
@@ -369,24 +374,27 @@ export default function CheckoutPage() {
 
   // Tự động kiểm tra mã khuyến mãi khi người dùng nhập xong (debounce 400ms) hoặc đổi món
   useEffect(() => {
-    if (!user || items.length === 0) return;
-    if (!normalizedPromo) {
-      setValidatedPromo(null);
-      setPromoError("");
-      return;
-    }
+    if (!user || items.length === 0 || !normalizedPromo) return;
 
     const timer = setTimeout(() => {
-      verifyPromoCodeWithApi(normalizedPromo, subtotal);
+      void verifyPromoCodeWithApi(normalizedPromo, subtotal);
     }, 400);
 
     return () => clearTimeout(timer);
   }, [user, items.length, normalizedPromo, subtotal, verifyPromoCodeWithApi]);
 
-  const estimatedDiscount =
-    validatedPromo && validatedPromo.code === normalizedPromo
-      ? validatedPromo.discountAmount
-      : 0;
+  const activeValidatedPromo =
+    normalizedPromo && validatedPromo?.code === normalizedPromo
+      ? validatedPromo
+      : null;
+  const activePromoError =
+    normalizedPromo && promoErrorState?.code === normalizedPromo
+      ? promoErrorState.message
+      : "";
+
+  const estimatedDiscount = activeValidatedPromo
+    ? activeValidatedPromo.discountAmount
+    : 0;
   const finalEstimatedTotal = Math.max(0, subtotal - estimatedDiscount);
 
   // Tính toán tiền mặt nhận và tiền thối
@@ -431,6 +439,7 @@ export default function CheckoutPage() {
     setItems([]);
     setQrUrl("");
     setValidatedPromo(null);
+    setPromoErrorState(null);
     setCompletedOrder(matched);
   }
 
@@ -494,8 +503,8 @@ export default function CheckoutPage() {
         setError("Đang kiểm tra mã khuyến mãi, vui lòng đợi giây lát...");
         return false;
       }
-      if (promoError || !validatedPromo || validatedPromo.code !== normalizedPromo) {
-        setError(promoError || "Mã khuyến mãi chưa hợp lệ hoặc đã hết lượt sử dụng.");
+      if (activePromoError || !activeValidatedPromo) {
+        setError(activePromoError || "Mã khuyến mãi chưa hợp lệ hoặc đã hết lượt sử dụng.");
         return false;
       }
     }
@@ -509,10 +518,7 @@ export default function CheckoutPage() {
 
     setError("");
     const token = getValidAccessToken() ?? "";
-    const validPromoToSend =
-      validatedPromo && validatedPromo.code === normalizedPromo
-        ? normalizedPromo
-        : undefined;
+    const validPromoToSend = activeValidatedPromo ? normalizedPromo : undefined;
 
     const checkoutPayload = JSON.stringify({
       userId: user.id,
@@ -638,10 +644,7 @@ export default function CheckoutPage() {
 
     try {
       const token = getValidAccessToken();
-      const validPromoToSend =
-        validatedPromo && validatedPromo.code === normalizedPromo
-          ? normalizedPromo
-          : undefined;
+      const validPromoToSend = activeValidatedPromo ? normalizedPromo : undefined;
 
       const order = await submitPayment(
         idempotencyKey,
@@ -680,11 +683,12 @@ export default function CheckoutPage() {
       clearCheckoutStorage();
       setItems([]);
       setValidatedPromo(null);
+      setPromoErrorState(null);
       setCompletedOrder(order);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Không thể xử lý thanh toán.");
       if (normalizedPromo) {
-        verifyPromoCodeWithApi(normalizedPromo, subtotal);
+        void verifyPromoCodeWithApi(normalizedPromo, subtotal);
       }
     } finally {
       setSubmitting(false);
@@ -1169,7 +1173,7 @@ export default function CheckoutPage() {
                           setQrUrl("");
                           setError("");
                           setIdempotencyKey(generateIdempotencyKey());
-                          verifyPromoCodeWithApi(p.code, subtotal);
+                          void verifyPromoCodeWithApi(p.code, subtotal);
                         }}
                         className={`rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${
                           normalizedPromo === p.code
@@ -1202,6 +1206,7 @@ export default function CheckoutPage() {
                       setPromoCode(nextVal);
                       setQrUrl("");
                       setError("");
+                      setPromoErrorState(null);
                       setIdempotencyKey(generateIdempotencyKey());
                       try {
                         if (upper) {
@@ -1219,24 +1224,24 @@ export default function CheckoutPage() {
                   <button
                     type="button"
                     disabled={!normalizedPromo || validatingPromo || Boolean(qrUrl)}
-                    onClick={() => verifyPromoCodeWithApi(normalizedPromo, subtotal)}
+                    onClick={() => void verifyPromoCodeWithApi(normalizedPromo, subtotal)}
                     className="min-h-11 rounded-xl border border-brand bg-brand-soft px-4 text-xs font-bold text-brand transition hover:bg-brand hover:text-white disabled:opacity-50"
                   >
                     {validatingPromo ? "Đang kiểm tra..." : "Áp dụng"}
                   </button>
                 </div>
 
-                {validatedPromo && validatedPromo.code === normalizedPromo ? (
+                {activeValidatedPromo ? (
                   <p className="mt-2 text-xs font-semibold text-brand">
-                    ✓ Đã áp dụng mã {validatedPromo.code} (giảm{" "}
-                    {formatPrice(validatedPromo.discountAmount)})
-                    {validatedPromo.remainingUses !== null
-                      ? ` · Còn ${validatedPromo.remainingUses}/${validatedPromo.maxUses} lượt sử dụng`
+                    ✓ Đã áp dụng mã {activeValidatedPromo.code} (giảm{" "}
+                    {formatPrice(activeValidatedPromo.discountAmount)})
+                    {activeValidatedPromo.remainingUses !== null
+                      ? ` · Còn ${activeValidatedPromo.remainingUses}/${activeValidatedPromo.maxUses} lượt sử dụng`
                       : ""}
                   </p>
-                ) : promoError ? (
+                ) : activePromoError ? (
                   <p className="mt-2 text-xs font-semibold text-red-700">
-                    ✕ {promoError}
+                    ✕ {activePromoError}
                   </p>
                 ) : null}
               </div>
