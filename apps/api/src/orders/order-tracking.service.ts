@@ -13,11 +13,39 @@ export interface AuthUser {
   role?: string;
 }
 
-const STAFF_ROLES = ['ADMIN', 'STAFF'];
+const STAFF_ROLES = ['ADMIN', 'STAFF', 'MANAGER'];
 
 @Injectable()
 export class OrderTrackingService {
   constructor(private readonly prisma: PrismaService) {}
+
+  /** GET /orders – toàn bộ đơn hàng của quán (dành cho STAFF / ADMIN / MANAGER) */
+  async findAll(userId: string) {
+    const dbUser = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    });
+
+    const isStaff = STAFF_ROLES.includes((dbUser?.role ?? '').toUpperCase());
+    if (!isStaff) {
+      throw new ForbiddenException(
+        'Chỉ nhân viên quầy hoặc quản lý mới được xem toàn bộ đơn hàng',
+      );
+    }
+
+    return this.prisma.order.findMany({
+      orderBy: { createdAt: 'desc' },
+      include: {
+        user: { select: { id: true, name: true, email: true } },
+        items: {
+          include: {
+            product: { select: { id: true, name: true, imageUrl: true } },
+          },
+        },
+        payment: true,
+      },
+    });
+  }
 
   /** GET /orders/me – đơn của người dùng hiện tại, mới nhất trước */
   findMine(userId: string) {
@@ -55,15 +83,15 @@ export class OrderTrackingService {
       }
     }
 
-      if (!canTransition(order.status, next)) {
-        throw new BadRequestException(
-          `Không thể chuyển trạng thái đơn từ ${order.status} sang ${next}`,
-        );
-      }
-
-      return this.prisma.order.update({
-        where: { id: orderId },
-        data: { status: next },
-      });
+    if (!canTransition(order.status, next)) {
+      throw new BadRequestException(
+        `Không thể chuyển trạng thái đơn từ ${order.status} sang ${next}`,
+      );
     }
+
+    return this.prisma.order.update({
+      where: { id: orderId },
+      data: { status: next },
+    });
   }
+}

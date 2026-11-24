@@ -1,4 +1,4 @@
-import type { Prisma } from '@prisma/client';
+import { PromotionType, type Prisma } from '@prisma/client';
 
 const IMG = {
   milkTea:
@@ -10,6 +10,93 @@ const IMG = {
   fruitTea:
     'https://images.unsplash.com/photo-1556679343-c7306c1976bc?auto=format&fit=crop&w=800&q=85',
 };
+
+export interface SeedAccountInput {
+  email: string;
+  name: string;
+  role: 'CUSTOMER' | 'STAFF' | 'ADMIN';
+  plainPassword: string;
+  loyaltyPoints: number;
+}
+
+export const seedAccounts: SeedAccountInput[] = [
+  {
+    email: 'staff@brewlite.vn',
+    name: 'Nhân viên Quầy 01',
+    role: 'STAFF',
+    plainPassword: 'Staff123',
+    loyaltyPoints: 0,
+  },
+  {
+    email: 'admin@brewlite.vn',
+    name: 'Quản lý Cửa hàng',
+    role: 'ADMIN',
+    plainPassword: 'Admin123',
+    loyaltyPoints: 0,
+  },
+  {
+    email: 'customer@brewlite.vn',
+    name: 'Nguyễn Minh Anh',
+    role: 'CUSTOMER',
+    plainPassword: 'Customer123',
+    loyaltyPoints: 120,
+  },
+];
+
+export const seedPromotions: Prisma.PromotionCreateInput[] = [
+  {
+    code: 'STAFF20',
+    type: PromotionType.PERCENTAGE,
+    value: 20,
+    minOrderValue: 0,
+    startDate: new Date('2026-01-01T00:00:00.000Z'),
+    endDate: new Date('2027-12-31T23:59:59.000Z'),
+    isActive: true,
+    staffOnly: true,
+    maxUses: 10,
+    usedCount: 0,
+    perUserLimit: null,
+  },
+  {
+    code: 'SGU2026',
+    type: PromotionType.PERCENTAGE,
+    value: 20,
+    minOrderValue: 0,
+    startDate: new Date('2026-01-01T00:00:00.000Z'),
+    endDate: new Date('2027-12-31T23:59:59.000Z'),
+    isActive: true,
+    staffOnly: false,
+    maxUses: 100,
+    usedCount: 0,
+    perUserLimit: 1,
+  },
+  {
+    code: 'BREWLITE10',
+    type: PromotionType.FIXED_AMOUNT,
+    value: 10000,
+    minOrderValue: 30000,
+    startDate: new Date('2026-01-01T00:00:00.000Z'),
+    endDate: new Date('2027-12-31T23:59:59.000Z'),
+    isActive: true,
+    staffOnly: false,
+    maxUses: 50,
+    usedCount: 0,
+    perUserLimit: 1,
+  },
+  {
+    code: 'FREESHIP',
+    type: PromotionType.FIXED_AMOUNT,
+    value: 15000,
+    minOrderValue: 40000,
+    startDate: new Date('2026-01-01T00:00:00.000Z'),
+    endDate: new Date('2027-12-31T23:59:59.000Z'),
+    isActive: true,
+    staffOnly: false,
+    maxUses: 50,
+    usedCount: 0,
+    perUserLimit: 1,
+  },
+];
 
 export const seedProducts: Prisma.ProductCreateManyInput[] = [
   { name: 'Trà sữa trân châu', category: 'Trà sữa', price: 39000, stockQuantity: 25, imageUrl: IMG.milkTea, description: 'Trà thơm, sữa béo, trân châu dẻo' },

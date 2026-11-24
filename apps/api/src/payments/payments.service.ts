@@ -1,8 +1,19 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
-import { LoyaltyType, OrderStatus, PaymentStatus, PromotionType } from '@prisma/client';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+} from '@nestjs/common';
+import {
+  LoyaltyType,
+  OrderStatus,
+  PaymentStatus,
+  PromotionType,
+} from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import type { CreatePaymentDto } from './dto/create-payment.dto';
+
+const STAFF_ROLES = ['STAFF', 'ADMIN', 'MANAGER'];
 
 const SIZE_SURCHARGE: Record<string, number> = {
   S: 0,
@@ -43,7 +54,7 @@ export class PaymentsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async processPayment(idempotencyKey: string, dto: CreatePaymentDto) {
-    // 1. KIỂM TRA IDEMPOTENCY-KEY TRÊN BẢNG ORDER (Theo class-diagram.puml)
+    // 1. KIỂM TRA IDEMPOTENCY-KEY TRÊN BẢNG ORDER
     const existingOrder = await this.prisma.order.findUnique({
       where: { idempotencyKey },
       include: { items: true, payment: true },
@@ -53,7 +64,7 @@ export class PaymentsService {
       return existingOrder;
     }
 
-    // 2. XỬ LÝ TRANSACTION (Theo sequence-checkout.puml)
+    // 2. XỬ LÝ TRANSACTION
     return this.prisma.$transaction(async (tx) => {
       let totalAmount = 0;
       const orderItemsData: {
@@ -65,7 +76,9 @@ export class PaymentsService {
 
       // a. Kiểm tra tồn kho (stockQuantity) & tính tổng tiền (gồm Size + Topping)
       for (const item of dto.items) {
-        const product = await tx.product.findUnique({ where: { id: item.productId } });
+        const product = await tx.product.findUnique({
+          where: { id: item.productId },
+        });
         if (!product || !product.isActive || product.stockQuantity < item.quantity) {
           throw new BadRequestException(
             `Sản phẩm #${item.productId} không đủ số lượng hoặc đã ngừng bán.`,
@@ -84,23 +97,28 @@ export class PaymentsService {
           totalPrice: lineTotal,
         });
 
-        // Trừ tồn kho
         await tx.product.update({
           where: { id: product.id },
           data: { stockQuantity: product.stockQuantity - item.quantity },
         });
       }
 
-      // b. Kiểm tra & áp dụng Promotion (PERCENTAGE / FIXED_AMOUNT)
+      // b. Kiểm tra quyền sử dụng, giới hạn số lượt & trừ lượt Promotion
       let discountAmount = 0;
       let appliedPromotionId: string | null = null;
 
       const normalizedPromoCode = dto.promoCode?.trim().toUpperCase();
       if (normalizedPromoCode) {
         const now = new Date();
-        const promotion = await tx.promotion.findUnique({
-          where: { code: normalizedPromoCode },
-        });
+        const [promotion, user] = await Promise.all([
+          tx.promotion.findUnique({
+            where: { code: normalizedPromoCode },
+          }),
+          tx.user.findUnique({
+            where: { id: dto.userId },
+            select: { role: true },
+          }),
+        ]);
 
         if (
           !promotion ||
@@ -108,7 +126,42 @@ export class PaymentsService {
           now < promotion.startDate ||
           now > promotion.endDate
         ) {
-          throw new BadRequestException('Mã giảm giá không hợp lệ hoặc đã hết hạn.');
+          throw new BadRequestException(
+            'Mã giảm giá không hợp lệ hoặc đã hết hạn.',
+          );
+        }
+
+        const isStaff = STAFF_ROLES.includes(
+          String(user?.role ?? '').toUpperCase(),
+        );
+        if (promotion.staffOnly && !isStaff) {
+          throw new ForbiddenException(
+            'Mã khuyến mãi này chỉ dành riêng cho nhân viên áp dụng tại quầy.',
+          );
+        }
+
+        if (
+          promotion.maxUses !== null &&
+          promotion.usedCount >= promotion.maxUses
+        ) {
+          throw new BadRequestException(
+            `Mã giảm giá "${promotion.code}" đã hết lượt sử dụng.`,
+          );
+        }
+
+        if (!promotion.staffOnly && promotion.perUserLimit !== null) {
+          const usedByUser = await tx.order.count({
+            where: {
+              userId: dto.userId,
+              promotionId: promotion.id,
+              status: { not: OrderStatus.CANCELLED },
+            },
+          });
+          if (usedByUser >= promotion.perUserLimit) {
+            throw new BadRequestException(
+              `Bạn đã sử dụng hết ${promotion.perUserLimit} lượt cho mã "${promotion.code}".`,
+            );
+          }
         }
 
         if (totalAmount < Number(promotion.minOrderValue)) {
@@ -125,6 +178,17 @@ export class PaymentsService {
 
         discountAmount = Math.min(discountAmount, totalAmount);
         appliedPromotionId = promotion.id;
+
+        const nextUsedCount = promotion.usedCount + 1;
+        await tx.promotion.update({
+          where: { id: promotion.id },
+          data: {
+            usedCount: { increment: 1 },
+            ...(promotion.maxUses !== null && nextUsedCount >= promotion.maxUses
+              ? { isActive: false }
+              : {}),
+          },
+        });
       }
 
       const finalAmount = totalAmount - discountAmount;
