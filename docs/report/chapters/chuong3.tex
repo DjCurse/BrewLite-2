@@ -1,0 +1,70 @@
+% ==================== CHƯƠNG 3: TASK 3 (TÔ PHÚC KHANG) ====================
+\section{Thiết kế Kiến trúc và Triển khai (Task 3)}
+\textit{(Phụ trách thực hiện: Tô Phúc Khang)}
+
+\subsection{Kiến trúc tổng thể và Quyết định kiến trúc (ADR)}
+
+\subsubsection{Kiến trúc phân lớp kết hợp Modular Monolith}
+Hệ thống được \textbf{Tô Phúc Khang} thiết kế theo mô hình phân lớp (Layered Architecture) kết hợp Modular Monolith giúp tách bạch rõ ràng trách nhiệm giữa giao diện, xử lý nghiệp vụ và lưu trữ dữ liệu:
+\begin{itemize}
+    \item \textbf{Tầng trình diễn (\texttt{apps/web}):} Ứng dụng Next.js App Router theo hướng Mobile-first/PWA, quản lý trạng thái giỏ hàng đồng bộ và giao tiếp với API qua REST/JSON.
+    \item \textbf{Tầng nghiệp vụ (\texttt{apps/api}):} Backend NestJS tổ chức thành các module độc lập (\texttt{ProductsModule}, \texttt{AuthModule}, \texttt{OrdersModule}, \texttt{PaymentsModule}, \texttt{PromotionsModule}, \texttt{HealthModule}) với \texttt{ValidationPipe} và \texttt{JwtAuthGuard}.
+    \item \textbf{Tầng dữ liệu (\texttt{PostgreSQL \& Prisma ORM}):} Thực thi truy vấn an toàn kiểu dữ liệu thông qua \texttt{DATABASE\_URL} (Transaction Pooler) và \texttt{DIRECT\_URL} (Session Pooler), đảm bảo tính nhất quán qua Transaction.
+\end{itemize}
+
+\begin{figure}[H]
+\centering
+\chenHinh{width=0.95\textwidth,height=0.55\textheight,keepaspectratio}{architecture-c4.png}
+\caption{Sơ đồ kiến trúc phân lớp và phân rã Module của hệ thống BrewLite}
+\end{figure}
+
+\subsubsection{Các quyết định kiến trúc trọng tâm (Architecture Decision Records)}
+\begin{itemize}
+    \item \textbf{ADR-001 -- Lựa chọn cấu trúc Monorepo:} Toàn bộ mã nguồn \texttt{apps/web}, \texttt{apps/api}, tài liệu \texttt{docs/} và kiểm thử \texttt{tests/} được đặt trong một kho chứa Git duy nhất (\texttt{DjCurse/BrewLite-2}) nhằm đồng bộ cấu hình Docker, quy trình CI/CD và dễ dàng kiểm soát phiên bản giữa 6 thành viên (\textbf{Tô Phúc Khang}, \textbf{Phan Lê Ngọc Như Ý}, \textbf{Nguyễn Thị Tuyết Trâm}, \textbf{Lương Thanh Tuấn}, \textbf{Nguyễn Thị Huyền Trang} và \textbf{Trần Thị Trúc Đào}).
+    \item \textbf{ADR-002 -- Tính giá và kiểm tra tồn kho phía Server bằng Transaction:} Mọi đơn giá Size/Topping, mã giảm giá (\texttt{PromotionsService}) và số lượng tồn kho (\texttt{stockQuantity}) đều được tính toán và xác minh lại trong cùng một Database Transaction tại \texttt{OrdersService} để ngăn chặn gian lận giá từ phía client và chống bán vượt tồn kho khi có nhiều yêu cầu đồng thời.
+    \item \textbf{ADR-003 -- Đảm bảo tính bất biến thanh toán bằng \texttt{Idempotency-Key}:} Endpoint \texttt{POST /payments} bắt buộc nhận khóa duy nhất từ client; nếu giao dịch đã được xử lý trước đó, hệ thống trả về ngay kết quả cũ mà không trừ tiền hoặc cộng điểm thưởng lần thứ hai.
+\end{itemize}
+
+\subsection{Đặc tả giao tiếp RESTful API}
+\begin{table}[H]
+\centering
+\small
+\renewcommand{\arraystretch}{1.25}
+\caption{Danh mục các RESTful API cốt lõi của hệ thống BrewLite}
+\begin{tabularx}{\textwidth}{|l|l|l|X|}
+\hline
+\textbf{Method} & \textbf{Endpoint} & \textbf{Xác thực} & \textbf{Chức năng chính} \\
+\hline
+\texttt{GET} & \texttt{/products} & Công khai & Lấy danh sách món có phân trang (\texttt{page}, \texttt{pageSize}), lọc \texttt{category} và tìm kiếm \texttt{q}. \\
+\hline
+\texttt{GET} & \texttt{/products/:id} & Công khai & Lấy thông tin chi tiết một sản phẩm theo ID (trả về 404 nếu không tồn tại). \\
+\hline
+\texttt{POST} & \texttt{/auth/register} & Công khai & Đăng ký tài khoản mới, validate dữ liệu và băm mật khẩu bằng \texttt{bcrypt}. \\
+\hline
+\texttt{POST} & \texttt{/auth/login} & Công khai & Xác thực thông tin đăng nhập và trả về \texttt{accessToken} (JWT). \\
+\hline
+\texttt{GET} & \texttt{/users/me} & Bearer JWT & Lấy thông tin hồ sơ cá nhân và tổng điểm tích lũy (\texttt{loyaltyPoints}). \\
+\hline
+\texttt{POST} & \texttt{/promotions/validate} & Bearer JWT & Kiểm tra tính hợp lệ, quyền nhân viên (\texttt{staffOnly}) và tính mức giảm giá của mã khuyến mãi. \\
+\hline
+\texttt{POST} & \texttt{/orders} & Bearer JWT & Tạo đơn hàng \texttt{PENDING}, kiểm tra/trừ tồn kho và tính tổng tiền trong Transaction. \\
+\hline
+\texttt{GET} & \texttt{/orders/me} & Bearer JWT & Lấy danh sách lịch sử đơn hàng của người dùng hiện tại. \\
+\hline
+\texttt{PATCH} & \texttt{/orders/:id/status} & Bearer JWT & Cập nhật tiến trình xử lý đơn hàng (\texttt{PREPARING} $\rightarrow$ \texttt{READY} $\rightarrow$ \texttt{COMPLETED}). \\
+\hline
+\texttt{POST} & \texttt{/payments} & Bearer JWT & Thanh toán đơn hàng (Ví MoMo QR / Thẻ) kèm header \texttt{Idempotency-Key} và cộng điểm. \\
+\hline
+\texttt{GET} & \texttt{/health} & Công khai & Kiểm tra trạng thái hoạt động của API và kết nối PostgreSQL (Smoke Test). \\
+\hline
+\end{tabularx}
+\end{table}
+
+\subsection{Sơ đồ triển khai hệ thống (Deployment Diagram)}
+Sơ đồ triển khai do \textbf{Tô Phúc Khang} thiết kế thể hiện rõ 3 vùng môi trường (\textit{Local Docker Compose}, \textit{GitHub Actions CI/CD}, và \textit{Production Cloud: Supabase PostgreSQL Singapore, Render Web Service \& Vercel Edge}), giao thức mã hóa HTTPS, quản lý biến môi trường (\texttt{DATABASE\_URL}, \texttt{DIRECT\_URL}, \texttt{FRONTEND\_URL}, \texttt{NEXT\_PUBLIC\_API\_URL}) và vùng lưu trữ bền vững (Persistent Storage) cho PostgreSQL.
+
+\begin{figure}[H]
+\centering
+\chenHinh{width=0.96\textwidth,height=0.58\textheight,keepaspectratio}{deployment-diagram.png}
+\caption{Sơ đồ triển khai hệ thống (Deployment Diagram) trên môi trường Production}
+\end{figure}
