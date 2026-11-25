@@ -1,0 +1,50 @@
+% ==================== CHƯƠNG 2: TASK 2 (LƯƠNG THANH TUẤN) ====================
+\section{Mô hình hóa Hệ thống (Task 2)}
+
+\subsection{Sơ đồ hoạt động (Activity Diagram)}
+\textit{(Phụ trách thực hiện: Nguyễn Thị Huyền Trang)}
+
+Sơ đồ hoạt động do \textbf{Nguyễn Thị Huyền Trang} thiết kế mô tả luồng nghiệp vụ End-to-End qua 4 làn bơi (Swimlane): \textit{Customer}, \textit{Next.js UI}, \textit{NestJS API} và \textit{Payment Service}, thể hiện đầy đủ các điểm rẽ nhánh kiểm tra đăng nhập, kiểm tra số lượng tồn kho và xử lý kết quả thanh toán thành công/thất bại.
+
+\begin{figure}[H]
+\centering
+\chenHinh{width=0.98\textwidth,height=0.72\textheight,keepaspectratio}{activity-checkout.png}
+\caption{Sơ đồ hoạt động (Activity Diagram) luồng đặt món và thanh toán End-to-End}
+\end{figure}
+
+\clearpage
+\subsection{Sơ đồ tuần tự (Sequence Diagram)}
+\textit{(Phụ trách thực hiện: Lương Thanh Tuấn)}
+
+Sơ đồ tuần tự do \textbf{Lương Thanh Tuấn} thiết kế biểu diễn chi tiết trình tự trao đổi thông điệp giữa 5 thành phần (\texttt{Customer} $\rightarrow$ \texttt{Next.js UI} $\rightarrow$ \texttt{NestJS API} $\rightarrow$ \texttt{Database} $\rightarrow$ \texttt{Payment Service}), bao gồm bước xác thực JWT, đối soát \texttt{Idempotency-Key}, kiểm tra tồn kho và thực thi khối \texttt{Database Transaction} đảm bảo tính nguyên tử (Atomicity). Trong triển khai thực tế, luồng này được tách thành hai endpoint độc lập là \texttt{POST /orders} (tạo đơn \texttt{PENDING} và trừ tồn kho) và \texttt{POST /payments} (xử lý thanh toán idempotent và cập nhật \texttt{PAID}).
+
+\begin{figure}[H]
+\centering
+\chenHinh{width=0.95\textwidth,height=0.72\textheight,keepaspectratio}{sequence-checkout.png}
+\caption{Sơ đồ tuần tự (Sequence Diagram) cho ca sử dụng Đặt đơn và Thanh toán}
+\end{figure}
+
+\clearpage
+\subsection{Sơ đồ lớp mức Domain và Thiết kế Cơ sở dữ liệu}
+\textit{(Phụ trách thực hiện: Lương Thanh Tuấn)}
+
+\subsubsection{Sơ đồ lớp mức Domain (Class Diagram)}
+Mô hình lớp mức Domain do \textbf{Lương Thanh Tuấn} xây dựng bao gồm đầy đủ 7 thực thể cốt lõi (\texttt{User}, \texttt{Product}, \texttt{Order}, \texttt{OrderItem}, \texttt{Payment}, \texttt{Promotion}, \texttt{LoyaltyTransaction}) cùng 5 kiểu liệt kê (\texttt{OrderStatus}, \texttt{PaymentStatus}, \texttt{PaymentMethod}, \texttt{PromotionType}, \texttt{LoyaltyType}) và các quan hệ bội số (Multiplicity).
+
+\begin{figure}[H]
+\centering
+\chenHinh{width=0.96\textwidth,height=0.62\textheight,keepaspectratio}{class-diagram.png}
+\caption{Sơ đồ lớp mức Domain (Class Diagram) của hệ thống BrewLite}
+\end{figure}
+
+\subsubsection{Thiết kế lược đồ Cơ sở dữ liệu (PostgreSQL \& Prisma Schema)}
+Từ mô hình lớp Domain, \textbf{Lương Thanh Tuấn} phối hợp cùng \textbf{Tô Phúc Khang} và \textbf{Phan Lê Ngọc Như Ý} ánh xạ thành 7 bảng quan hệ trong PostgreSQL thông qua Prisma ORM (\texttt{apps/api/prisma/schema.prisma}) và đồng bộ trực tiếp lên Supabase:
+\begin{itemize}
+    \item \textbf{\texttt{User}:} Lưu thông tin tài khoản (\texttt{id}, \texttt{email} duy nhất, \texttt{name}, \texttt{passwordHash} băm bằng bcrypt, \texttt{role} gồm \texttt{CUSTOMER}/\texttt{STAFF}/\texttt{ADMIN}, \texttt{loyaltyPoints} mặc định 0).
+    \item \textbf{\texttt{Product}:} Lưu danh mục thực đơn (\texttt{id}, \texttt{name}, \texttt{category}, \texttt{description}, \texttt{price} số nguyên VND, \texttt{imageUrl}, \texttt{stockQuantity}, \texttt{isActive}).
+    \item \textbf{\texttt{Order}:} Lưu đơn đặt hàng (\texttt{id}, \texttt{userId}, \texttt{promotionId}, \texttt{totalAmount}, \texttt{discountAmount}, \texttt{finalAmount}, \texttt{status} thuộc \texttt{OrderStatus}, \texttt{idempotencyKey} đánh chỉ mục duy nhất).
+    \item \textbf{\texttt{OrderItem}:} Lưu từng dòng món trong đơn (\texttt{id}, \texttt{orderId}, \texttt{productId}, \texttt{quantity}, \texttt{unitPrice}, \texttt{totalPrice}, kèm tùy chọn Size/Topping).
+    \item \textbf{\texttt{Payment}:} Lưu lịch sử giao dịch thanh toán (\texttt{id}, \texttt{orderId}, \texttt{transactionId}, \texttt{method}, \texttt{status}, \texttt{amount}, \texttt{paidAt}).
+    \item \textbf{\texttt{Promotion}:} Quản lý mã giảm giá (\texttt{id}, \texttt{code} duy nhất như \texttt{BREWLITE10}, \texttt{STAFF20}, \texttt{SGU2026}, \texttt{FREESHIP}, \texttt{type}, \texttt{value}, \texttt{minOrderValue}, \texttt{staffOnly}, \texttt{maxUses}, \texttt{usedCount}, \texttt{perUserLimit}, \texttt{isActive}, thời hạn áp dụng).
+    \item \textbf{\texttt{LoyaltyTransaction}:} Lưu nhật ký biến động điểm thưởng (\texttt{id}, \texttt{userId}, \texttt{orderId}, \texttt{points}, \texttt{type} \texttt{EARN/REDEEM}).
+\end{itemize}
