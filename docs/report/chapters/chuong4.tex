@@ -1,0 +1,67 @@
+% ==================== CHƯƠNG 4: TASK 4 & TASK 5 (NGUYỄN THỊ HUYỀN TRANG) ====================
+\section{Hiện thực hóa Sprint 1, Sprint 2 và Kiểm thử (Task 4 \& Task 5)}
+
+\subsection{Thiết lập Repository và Quy trình làm việc trên Git}
+\textbf{Tô Phúc Khang} khởi tạo kho mã nguồn theo chuẩn Monorepo trên GitHub (\texttt{DjCurse/BrewLite-2}), thiết lập cấu hình Docker Compose (\texttt{docker-compose.yml} chạy Frontend cổng \texttt{3000}, Backend cổng \texttt{3001} và PostgreSQL 16 ánh xạ cổng \texttt{5433:5432} kèm đầy đủ biến \texttt{DATABASE\_URL} và \texttt{DIRECT\_URL}), áp dụng quy tắc bảo vệ nhánh \texttt{main} và phân chia công việc theo từng nhánh tính năng (\texttt{docs/...}, \texttt{feat/...}) để cả 6 thành viên kiểm duyệt chéo qua Pull Request trước khi hợp nhất.
+
+\begin{figure}[H]
+\centering
+\chenHinh{width=0.88\textwidth,height=0.45\textheight,keepaspectratio}{github-backlog-board.png}
+\caption{Cấu trúc kho mã nguồn Monorepo và bảng theo dõi tiến độ công việc trên GitHub}
+\end{figure}
+
+\subsection{Kết quả hiện thực MVP Sprint 1 (Module Products \& Giao diện Thực đơn)}
+\textit{(Phụ trách thực hiện: Phan Lê Ngọc Như Ý phối hợp cùng Lương Thanh Tuấn)}
+
+Trong MVP Sprint 1, \textbf{Phan Lê Ngọc Như Ý} phối hợp với \textbf{Lương Thanh Tuấn} hoàn thiện module sản phẩm nhằm cung cấp dữ liệu đầu vào cho màn hình thực đơn và các bước đặt món tiếp theo:
+\begin{itemize}
+    \item \textbf{API quản lý và truy vấn sản phẩm (\texttt{apps/api/src/products/}):} Xây dựng trên NestJS và Prisma thông qua \texttt{PrismaService} dùng chung, cung cấp \texttt{GET /products} (hỗ trợ tham số \texttt{page}, \texttt{pageSize} giới hạn 1--50, \texttt{category}, \texttt{q} tìm kiếm theo tên/mô tả) và \texttt{GET /products/:id} (trả về lỗi 404 khi không tìm thấy).
+    \item \textbf{Dữ liệu mẫu (\texttt{apps/api/prisma/seed.ts}):} Khởi tạo 12 món thuộc 4 danh mục (\textit{Trà sữa, Matcha, Cà phê, Trà trái cây}), 3 tài khoản mẫu theo vai trò (\texttt{staff@brewlite.vn}, \texttt{admin@brewlite.vn}, \texttt{customer@brewlite.vn}) và các mã ưu đãi (\texttt{BREWLITE10}, \texttt{STAFF20}, \texttt{SGU2026}, \texttt{FREESHIP}) theo cơ chế chạy lặp an toàn (Idempotent Seed) tránh trùng lặp dữ liệu khi demo.
+    \item \textbf{Giao diện Mobile-first \& PWA (\texttt{apps/web/}):} Xây dựng màn hình Menu (tìm kiếm debounce 300ms, lọc danh mục, phân trang) và màn hình Chi tiết sản phẩm cho phép tùy chọn Size (S/M/L) và Topping (Trân châu, Kem, Thạch); xử lý đầy đủ 3 trạng thái \textbf{Loading}, \textbf{Empty}, \textbf{Error} cùng cấu hình PWA (\texttt{manifest.ts}, \texttt{sw.js}, \texttt{offline.html}). Khi người dùng bấm thêm món, giao diện phát sự kiện \texttt{brewlite:product-selected} để tích hợp trực tiếp sang module Giỏ hàng của \textbf{Nguyễn Thị Huyền Trang}, đồng thời thống nhất bảng phụ thu kiểm tra phía server với \textbf{Lương Thanh Tuấn} và \textbf{Tô Phúc Khang}.
+\end{itemize}
+
+\begin{figure}[H]
+\centering
+\chenHinh{width=0.88\textwidth,height=0.45\textheight,keepaspectratio}{ui-sprint1-menu.png}
+\caption{Giao diện màn hình Thực đơn đồ uống có tìm kiếm và lọc danh mục (MVP Sprint 1)}
+\end{figure}
+
+\subsection{Kết quả hiện thực MVP Sprint 2 (Đặt đơn, Thanh toán \& Theo dõi đơn)}
+Trong Sprint 2, các thành viên phối hợp hoàn thiện luồng nghiệp vụ khép kín từ xác thực người dùng đến thanh toán không tiền mặt:
+\begin{itemize}
+    \item \textbf{Xác thực JWT (\textit{Nguyễn Thị Tuyết Trâm}):} Hoàn thiện module Auth (\texttt{POST /auth/register}, \texttt{POST /auth/login}, \texttt{GET /users/me}), băm mật khẩu bằng \texttt{bcrypt}, bảo vệ tuyến đường bằng \texttt{JwtAuthGuard} và xây dựng trang Đăng ký/Đăng nhập điều hướng mượt mà.
+    \item \textbf{Giỏ hàng \& Theo dõi đơn hàng (\textit{Nguyễn Thị Huyền Trang}):} Xây dựng \texttt{useCartStore} (lưu trữ bền vững trên trình duyệt, lắng nghe sự kiện \texttt{brewlite:product-selected} từ màn hình của \textbf{Phan Lê Ngọc Như Ý}), giao diện Giỏ hàng (\texttt{/cart}), API \texttt{GET /orders/me}, \texttt{PATCH /orders/:id/status} và màn hình Theo dõi trạng thái đơn hàng trực quan (\textit{Order Tracking Stepper}: Đã đặt $\rightarrow$ Đang pha chế $\rightarrow$ Sẵn sàng nhận, tương ứng vòng đời \texttt{PENDING} $\rightarrow$ \texttt{PAID / PAYMENT\_FAILED} $\rightarrow$ \texttt{PREPARING} $\rightarrow$ \texttt{READY} $\rightarrow$ \texttt{COMPLETED}).
+    \item \textbf{Tạo đơn \& Trừ tồn kho nguyên tử (\textit{Lương Thanh Tuấn}):} Triển khai endpoint \texttt{POST /orders} thực thi kiểm tra số lượng tồn kho (\texttt{stockQuantity >= quantity}) và cập nhật giảm tồn kho trong cùng một Prisma Transaction, đồng thời xây dựng endpoint kiểm tra sức khỏe dịch vụ \texttt{GET /health}.
+    \item \textbf{Thanh toán không tiền mặt, Khuyến mãi \& Loyalty (\textit{Tô Phúc Khang \& Trần Thị Trúc Đào}):} \textbf{Tô Phúc Khang} hiện thực module Payments (\texttt{POST /payments}) và Promotions (\texttt{POST /promotions/validate}) với cơ chế chống thanh toán lặp qua header \texttt{Idempotency-Key}, kiểm soát điều kiện áp mã khuyến mãi (\texttt{BREWLITE10}, mã nội bộ nhân viên \texttt{STAFF20} với cờ \texttt{staffOnly}), xử lý kịch bản giả lập lỗi \texttt{PAYMENT\_FAILED} và tự động cộng điểm tích lũy Loyalty khi đơn chuyển sang \texttt{PAID}; \textbf{Trần Thị Trúc Đào} bổ sung luồng chọn phương thức Ví MoMo và tạo mã QR thanh toán không tiền mặt trên trang \texttt{/checkout}.
+\end{itemize}
+
+\begin{figure}[H]
+\centering
+\chenHinh{width=0.88\textwidth,height=0.42\textheight,keepaspectratio}{ui-product-detail.png}
+\caption{Giao diện tùy chọn Size, Topping và thêm món vào Giỏ hàng}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\chenHinh{width=0.88\textwidth,height=0.42\textheight,keepaspectratio}{ui-checkout-page.png}
+\caption{Giao diện Thanh toán không tiền mặt (Ví MoMo QR / Thẻ) và áp dụng mã khuyến mãi}
+\end{figure}
+
+\subsection{Tích hợp và Kiểm thử tự động (Unit, Integration, E2E Test)}
+Hệ thống được kiểm thử tự động ở cả 3 tầng với sự phân công rõ ràng cho từng thành viên:
+\begin{itemize}
+    \item \textbf{Unit Test \& Component Test:}
+    \begin{itemize}
+        \item \textbf{Phan Lê Ngọc Như Ý:} Viết và chạy pass 22 Unit Test cho \texttt{ProductsService}, \texttt{ProductsController}, chuẩn hóa phân trang, cơ chế chạy lặp \texttt{seed.ts} (5 test suites) cùng 23 Component Test (Vitest + Testing Library) kiểm thử hiển thị Menu, Chi tiết món và các trạng thái Loading/Empty/Error.
+        \item \textbf{Nguyễn Thị Tuyết Trâm:} Viết Unit Test kiểm thử đăng ký, đăng nhập, validate mật khẩu và phân quyền JWT trong \texttt{AuthService}.
+        \item \textbf{Tô Phúc Khang:} Viết Unit Test kiểm thử logic tính phụ thu Size/Topping, áp mã khuyến mãi và quy đổi điểm thưởng Loyalty.
+    \end{itemize}
+    \item \textbf{Integration Test (\textit{Lương Thanh Tuấn}):} Viết bộ kiểm thử tích hợp (\texttt{tests/orders-payments.int-spec.ts}) bằng Jest và Supertest gọi API thực tế với PostgreSQL: đặt hàng trừ tồn kho, từ chối và rollback khi đặt vượt tồn kho, gửi trùng \texttt{Idempotency-Key} không tạo giao dịch thứ hai, và giữ nguyên giỏ hàng khi thanh toán thất bại (\texttt{PAYMENT\_FAILED}).
+    \item \textbf{End-to-End (E2E) Test (\textit{Nguyễn Thị Huyền Trang \& Trần Thị Trúc Đào}):} Sử dụng Playwright/Cypress kiểm thử toàn trình từ duyệt menu $\rightarrow$ chọn món $\rightarrow$ đăng nhập $\rightarrow$ đặt đơn $\rightarrow$ thanh toán (Ví MoMo QR / Thẻ) $\rightarrow$ xem xác nhận và theo dõi trạng thái đơn hàng.
+\end{itemize}
+
+\begin{figure}[H]
+\centering
+\chenHinh{width=0.88\textwidth,height=0.42\textheight,keepaspectratio}{test-results-terminal.png}
+\caption{Kết quả thực thi bộ kiểm thử tự động Unit Test, Integration Test và E2E Test}
+\end{figure}
