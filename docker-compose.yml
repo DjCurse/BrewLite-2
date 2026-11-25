@@ -27,8 +27,8 @@ services:
       - "3001:3001"
     environment:
       PORT: 3001
-      # Bên trong mạng Docker phải gọi qua tên service "postgres" và cổng nội bộ 5432
       DATABASE_URL: "postgresql://postgres:123456@postgres:5432/brewlite_2db?schema=public"
+      DIRECT_URL: "postgresql://postgres:123456@postgres:5432/brewlite_2db?schema=public"
     depends_on:
       postgres:
         condition: service_healthy
@@ -49,5 +49,6 @@ services:
       NEXT_PUBLIC_API_URL: "http://localhost:3001"
     depends_on:
       - api
+
 volumes:
   brewlite2_pgdata:
