@@ -1,0 +1,232 @@
+% ==================== CHƯƠNG 5: CI/CD, CLOUD/VERCEL & TRUY VẾT (TRẦN THỊ TRÚC ĐÀO) ====================
+\section{Tự động hóa CI/CD, Triển khai Cloud và Ma trận Truy vết}
+\textit{(Phụ trách thực hiện: Tô Phúc Khang, Nguyễn Thị Huyền Trang và Trần Thị Trúc Đào)}
+
+\subsection{Quy trình Continuous Integration (CI Pipeline)}
+\textit{(Phụ trách thực hiện: Tô Phúc Khang \& Phan Lê Ngọc Như Ý)}
+
+Workflow GitHub Actions (\texttt{.github/workflows/ci.yml}) do \textbf{Tô Phúc Khang} thiết lập và được \textbf{Phan Lê Ngọc Như Ý} cập nhật lên môi trường Node 22 cùng bước chạy test Frontend tự động kích hoạt trên mọi Pull Request qua 4 bước: \texttt{Install} $\rightarrow$ \texttt{Lint} $\rightarrow$ \texttt{Unit/Component Test} $\rightarrow$ \texttt{Build}. Khi có kiểm thử thất bại, hệ thống đánh dấu trạng thái đỏ và chặn thao tác merge vào nhánh \texttt{main}.
+
+\begin{figure}[H]
+\centering
+\chenHinh{width=0.88\textwidth,height=0.40\textheight,keepaspectratio}{ci-pipeline-fail.png}
+\caption{Minh chứng GitHub Actions phát hiện lỗi kiểm thử và chặn Pull Request (CI Fail)}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\chenHinh{width=0.88\textwidth,height=0.40\textheight,keepaspectratio}{ci-pipeline-pass.png}
+\caption{Minh chứng GitHub Actions vượt qua toàn bộ kiểm thử và cho phép hợp nhất (CI Pass)}
+\end{figure}
+
+% ==================== MỤC 5.2: TRIỂN KHAI CLOUD ====================
+\subsection{Triển khai Frontend Next.js lên Vercel và Hệ thống Cloud}
+\textit{(Phụ trách thực hiện: Trần Thị Trúc Đào phối hợp cùng Tô Phúc Khang và Lương Thanh Tuấn)}
+
+Ở các chương trước, hệ thống \textbf{BrewLite} được đóng gói và vận hành trên máy cục bộ thông qua tệp \texttt{docker-compose.yml} (khởi chạy đồng thời Frontend ở cổng \texttt{3000}, Backend ở cổng \texttt{3001} và PostgreSQL 16 ánh xạ cổng \texttt{5433:5432}). Để phục vụ buổi nghiệm thu thực tế cũng như giúp khách hàng và nhân viên có thể truy cập ứng dụng trực tiếp từ trình duyệt mà không cần cài đặt môi trường, \textbf{Trần Thị Trúc Đào} phối hợp cùng \textbf{Tô Phúc Khang} và \textbf{Lương Thanh Tuấn} đã cấu hình và triển khai toàn bộ hệ thống lên môi trường đám mây (Cloud Server), trọng tâm là đưa ứng dụng \textbf{Frontend Next.js lên nền tảng Vercel} và cấu hình biến môi trường \texttt{NEXT\_PUBLIC\_API\_URL} liên kết với hệ thống Backend/Database.
+
+Việc đưa ứng dụng lên Cloud được thực hiện bằng cách tách biệt ba tầng kiến trúc của dự án lên ba nền tảng chuyên biệt tại phân vùng Singapore: cơ sở dữ liệu PostgreSQL đặt trên \textbf{Supabase}, dịch vụ Backend NestJS chạy trên \textbf{Render} và giao diện Frontend Next.js được triển khai trên \textbf{Vercel}.
+
+\subsubsection{Tổng quan hạ tầng Cloud và luồng kết nối thực tế}
+Thay vì gom tất cả dịch vụ vào một máy chủ duy nhất, nhóm lựa chọn mô hình phân tách từng tầng lên các nền tảng đám mây tương ứng với thế mạnh của từng công nghệ. Bảng \ref{tab:cloud-overview} tổng hợp thông tin định danh và vai trò thực tế của ba nền tảng mà nhóm đã cấu hình.
+
+\begin{table}[H]
+\centering
+\small
+\renewcommand{\arraystretch}{1.25}
+\caption{Phân bổ các tầng của hệ thống BrewLite trên môi trường Cloud}
+\vspace{0.2cm}
+\begin{tabular}{|p{2.5cm}|p{2.6cm}|p{4.5cm}|p{5.3cm}|}
+\hline
+\textbf{Tầng hệ thống} & \textbf{Nền tảng sử dụng} & \textbf{Thông tin dự án / Dịch vụ} & \textbf{Vai trò trong hệ thống} \\ \hline
+\textbf{Cơ sở dữ liệu (Database)} & \textbf{Supabase} \newline (PostgreSQL) & Project Ref: \newline \texttt{govkrnveqrjhklieiwbk} \newline Cụm máy chủ: \newline AWS \texttt{ap-southeast-1} (Singapore) & Lưu trữ 7 bảng dữ liệu (\texttt{User}, \texttt{Product}, \texttt{Order}, \texttt{OrderItem}, \texttt{Payment}, \texttt{Promotion}, \texttt{LoyaltyTransaction}). Cung cấp chuỗi kết nối qua Transaction Pooler cổng \texttt{6543} (\texttt{DATABASE\_URL}) và Session Pooler cổng \texttt{5432} (\texttt{DIRECT\_URL}). \\ \hline
+\textbf{Backend (REST API)} & \textbf{Render} \newline (Web Service) & Service: \texttt{brewlite2-api} \newline Service ID: \newline \texttt{srv-dc35clh5efis73as92v0} \newline Region: Singapore & Chạy ứng dụng NestJS, xử lý xác thực JWT, kiểm soát máy trạng thái đơn hàng (\texttt{Order State Machine}), chống thanh toán lặp (\texttt{Idempotency-Key}), áp mã khuyến mãi (\texttt{BREWLITE10}, \texttt{STAFF20}) và tính điểm \texttt{Loyalty}. \\ \hline
+\textbf{Frontend (Giao diện)} & \textbf{Vercel} & Team: \texttt{DJTEAM} (\texttt{djteam3}) \newline Project: \texttt{brewlite-2} \newline Domain: \texttt{brew-lite-2.vercel.app} & Biên dịch và phân phối giao diện Next.js (Root Directory \texttt{apps/web}), cấu hình \texttt{NEXT\_PUBLIC\_API\_URL} trỏ về Render và tự động cập nhật khi đẩy code lên nhánh \texttt{main}. \\ \hline
+\end{tabular}
+\label{tab:cloud-overview}
+\end{table}
+
+Trong mô hình vận hành này, luồng dữ liệu giữa các tầng không còn đi qua \texttt{localhost} mà giao tiếp hoàn toàn qua giao thức HTTPS trên Internet:
+\begin{enumerate}
+    \item Cơ sở dữ liệu trên \textbf{Supabase} đóng vai trò là tầng lưu trữ gốc. Sau khi đồng bộ lược đồ và nạp dữ liệu mẫu, Supabase cung cấp đường dẫn kết nối URI để nhóm cấu hình vào phần cài đặt môi trường của \textbf{Render}.
+    \item Dịch vụ Backend \texttt{brewlite2-api} trên \textbf{Render} sử dụng \texttt{PrismaService} để đọc và ghi dữ liệu vào Supabase, đồng thời cung cấp đường dẫn API công khai tại \url{https://brewlite2-api.onrender.com}.
+    \item Trên \textbf{Vercel}, \textbf{Trần Thị Trúc Đào} khai báo đường dẫn API của Render vào biến môi trường \texttt{NEXT\_PUBLIC\_API\_URL} của dự án \texttt{brewlite-2}, đồng thời khai báo ngược tên miền \url{https://brew-lite-2.vercel.app} vào biến \texttt{FRONTEND\_URL} trên Render để kích hoạt bảo mật CORS và sinh liên kết thanh toán QR.
+\end{enumerate}
+
+\subsubsection{Chuẩn bị hạ tầng dữ liệu trên Supabase và Backend trên Render}
+Để giao diện Frontend trên Vercel có sẵn nguồn API hoạt động khi cấu hình biến \texttt{NEXT\_PUBLIC\_API\_URL}, \textbf{Tô Phúc Khang} và \textbf{Lương Thanh Tuấn} thực hiện chuyển đổi cơ sở dữ liệu và đưa Backend lên hoạt động trước:
+
+\paragraph{Thiết lập chuỗi kết nối Supabase và đồng bộ lược đồ Prisma}
+Nhóm khởi tạo dự án cơ sở dữ liệu \texttt{BrewLite-2} trên Supabase (mã dự án \texttt{govkrnveqrjhklieiwbk}, đặt tại phân vùng \texttt{ap-southeast-1} Singapore để đảm bảo độ trễ thấp khi truy cập từ Việt Nam). Trong quá trình cấu hình cho Prisma ORM, nhóm thiết lập đồng thời hai đường dẫn kết nối tương ứng với hai chế độ Pooler trên máy chủ \texttt{aws-1-ap-southeast-1.pooler.supabase.com}:
+
+\begin{itemize}
+    \item \textbf{Biến \texttt{DATABASE\_URL} (kết nối qua Transaction Pooler -- cổng \texttt{6543}):}
+    \begin{verbatim}
+DATABASE_URL="postgresql://postgres.govkrnveqrjhklieiwbk:<ENCODED_PASSWORD>@
+aws-1-ap-southeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true"
+    \end{verbatim}
+    Đường dẫn này được ứng dụng NestJS sử dụng xuyên suốt trong lúc chạy thực tế để thực hiện các truy vấn đọc thực đơn, tạo đơn hàng và chạy giao dịch thanh toán. Do mật khẩu quản trị cơ sở dữ liệu có chứa ký tự đặc biệt \texttt{@}, nhóm đã chuyển ký tự này sang dạng mã hóa URL là \texttt{\%40} theo chuẩn URI để Prisma phân giải đúng tên miền máy chủ, đồng thời gắn tham số \texttt{pgbouncer=true} nhằm tránh xung đột \textit{prepared statements}.
+
+    \item \textbf{Biến \texttt{DIRECT\_URL} (kết nối qua Session Pooler -- cổng \texttt{5432}):}
+    \begin{verbatim}
+DIRECT_URL="postgresql://postgres.govkrnveqrjhklieiwbk:<ENCODED_PASSWORD>@
+aws-1-ap-southeast-1.pooler.supabase.com:5432/postgres"
+    \end{verbatim}
+    Đường dẫn này được dùng riêng khi nhóm chạy lệnh đồng bộ toàn bộ lược đồ bảng mới nhất (\texttt{npx prisma db push}) và nạp dữ liệu khởi tạo (\texttt{npx prisma db seed}) từ máy cục bộ lên Supabase, đảm bảo đầy đủ các trường mở rộng như \texttt{Promotion.staffOnly} cũng như danh sách sản phẩm và tài khoản mẫu.
+\end{itemize}
+
+Theo đúng nguyên tắc bảo mật đã thống nhất ở yêu cầu phi chức năng \texttt{NFR-08} (Mục 1.2.2), tệp \texttt{.env} chứa thông tin nhạy cảm được loại trừ khỏi Git thông qua \texttt{.gitignore}, còn các giá trị kết nối thực tế được nhập trực tiếp vào bảng điều khiển biến môi trường của Render.
+
+\paragraph{Vận hành dịch vụ Backend trên Render}
+Tiếp theo, nhóm tạo một Web Service trên \textbf{Render} có tên \texttt{brewlite2-api} (mã dịch vụ \texttt{srv-dc35clh5efis73as92v0}, phân vùng Singapore), cấu hình thư mục gốc (\textit{Root Directory}) là \texttt{apps/api} và liên kết với nhánh \texttt{main} trên kho lưu trữ GitHub \texttt{DjCurse/BrewLite-2}. Trong phần cài đặt của Render, nhóm thiết lập:
+\begin{itemize}
+    \item \textbf{Build Command:} \texttt{npm install --include=dev \&\& npx prisma generate \&\& npm run build} (bổ sung cờ \texttt{--include=dev} để đảm bảo cài đặt đầy đủ \texttt{@nestjs/cli} biên dịch TypeScript ngay cả khi \texttt{NODE\_ENV=production}).
+    \item \textbf{Start Command:} \texttt{npm run start:prod}.
+    \item \textbf{Environment Variables:} Khai báo đầy đủ 5 biến gồm \texttt{NODE\_ENV}, \texttt{DATABASE\_URL}, \texttt{DIRECT\_URL}, \texttt{JWT\_SECRET} và \texttt{FRONTEND\_URL}.
+\end{itemize}
+
+Khi nhóm hợp nhất Pull Request \texttt{\#30} (\textit{"Update đường dẫn deploy"}, commit \texttt{852abf8} ngày \texttt{25/11/2026}) vào nhánh \texttt{main}, Render tự động kích hoạt quy trình build, khởi tạo Prisma Client, biên dịch mã nguồn NestJS và cung cấp URL dịch vụ REST API tại \url{https://brewlite2-api.onrender.com}.
+
+\subsubsection{Quy trình Deploy Frontend Next.js lên Vercel và cấu hình biến môi trường}
+Sau khi tầng cơ sở dữ liệu trên Supabase và tầng Backend trên Render đã hoạt động ổn định, \textbf{Trần Thị Trúc Đào} thực hiện triển khai phần giao diện người dùng (Frontend Next.js) lên nền tảng \textbf{Vercel} tuần tự qua 4 bước:
+
+\paragraph{Bước 1: Kiểm tra mã nguồn cục bộ và khởi tạo Project trên Vercel}
+Trước khi đưa lên Cloud, nhóm chạy thử lệnh \texttt{npm run build} trong thư mục Frontend (\texttt{apps/web}) ở máy cá nhân để rà soát lỗi cú pháp TypeScript và đảm bảo toàn bộ màn hình chức năng đều đóng gói thành công. Sau khi mã nguồn trên nhánh \texttt{main} của GitHub đã sẵn sàng, \textbf{Trần Thị Trúc Đào} truy cập \url{https://vercel.com}, đăng nhập vào không gian làm việc nhóm \textbf{\texttt{DJTEAM}} (\texttt{djteam3}), nhấn vào nút \textbf{Add New...} và chọn \textbf{Project} để tạo dự án mới.
+
+\paragraph{Bước 2: Liên kết tài khoản GitHub và Import ứng dụng Frontend trong Monorepo}
+Tại màn hình khởi tạo dự án, thực hiện tích hợp Vercel với GitHub thông qua mục \textbf{Import Git Repository}, chọn kho mã nguồn \textbf{\texttt{DjCurse/BrewLite-2}} và chọn riêng ứng dụng con \texttt{web} (\texttt{apps/web} -- Next.js) theo chế độ \textit{Import single project} để triển khai độc lập với dịch vụ Backend trên Render.
+
+\paragraph{Bước 3: Cấu hình Framework và Biến môi trường \texttt{NEXT\_PUBLIC\_API\_URL}}
+Ở màn hình cấu hình dự án (\textit{Configure Project}) và trang quản lý biến môi trường của Vercel, thiết lập các thông số kỹ thuật cốt lõi:
+\begin{enumerate}
+    \item \textbf{Chọn Framework (\textit{Framework Preset}):} Hệ thống tự động nhận diện đúng framework là \textbf{Next.js} và giữ nguyên lệnh biên dịch mặc định (\texttt{next build}) tại thư mục gốc \texttt{apps/web}.
+    \item \textbf{Cấu hình chi tiết biến môi trường \texttt{NEXT\_PUBLIC\_API\_URL}:}
+    Trong quá trình phát triển dưới máy cá nhân, Frontend gọi API thông qua địa chỉ cục bộ \texttt{http://localhost:3001}. Khi đưa lên Vercel, để trình duyệt của khách hàng kết nối được tới máy chủ Backend, \textbf{Trần Thị Trúc Đào} truy cập trang quản trị biến môi trường của dự án \texttt{brewlite-2} tại đường dẫn:
+    \begin{center}
+    \url{https://vercel.com/djteam3/brewlite-2/settings/environment-variables}
+    \end{center}
+    Tại đây, tiến hành thêm mới biến môi trường \textbf{\texttt{NEXT\_PUBLIC\_API\_URL}} theo loại \textbf{Config} với quy tắc cấu hình như sau:
+    \begin{itemize}
+        \item \textbf{Tên biến (Key):} \texttt{NEXT\_PUBLIC\_API\_URL}. Tiền tố \textbf{\texttt{NEXT\_PUBLIC\_}} ở đầu tên biến là bắt buộc để trình biên dịch của Next.js nhúng giá trị đường dẫn này vào gói mã nguồn phía trình duyệt (Client-side bundle), giúp các màn hình chạy CSR (như chọn size/topping, giỏ hàng Zustand, thanh toán và đăng nhập) có thể gọi hàm \texttt{fetch(process.env.NEXT\_PUBLIC\_API\_URL + "/...")} trực tiếp tới Backend trên Render.
+        \item \textbf{Giá trị (Value):} Điền đường dẫn HTTPS thuần của dịch vụ Backend NestJS đã triển khai trên Render là \url{https://brewlite2-api.onrender.com} (không chứa ký tự định dạng thừa và không có dấu gạch chéo \texttt{/} ở cuối đường dẫn).
+        \item \textbf{Môi trường áp dụng (Environments):} Tích chọn các môi trường \textbf{Production} và \textbf{Preview}, sau đó nhấn \textbf{Save}.
+    \end{itemize}
+\end{enumerate}
+
+Bảng \ref{tab:env-summary} tổng hợp toàn bộ các biến môi trường được cấu hình trên Vercel và Render để vận hành hệ thống.
+
+\begin{table}[H]
+\centering
+\small
+\renewcommand{\arraystretch}{1.25}
+\caption{Bảng tổng hợp cấu hình biến môi trường trên Vercel và Render}
+\vspace{0.2cm}
+\begin{tabular}{|p{4.3cm}|p{2.9cm}|p{7.7cm}|}
+\hline
+\textbf{Tên biến môi trường} & \textbf{Nơi cấu hình} & \textbf{Ý nghĩa và mục đích sử dụng} \\ \hline
+\texttt{NEXT\_PUBLIC\_API\_URL} & Vercel \newline (\texttt{brewlite-2}) & Lưu địa chỉ công khai của Backend trên Render (\url{https://brewlite2-api.onrender.com}), nhúng vào gói mã nguồn trình duyệt để gọi REST API. \\ \hline
+\texttt{DATABASE\_URL} & Render \newline (\texttt{brewlite2-api}) & Chuỗi kết nối PostgreSQL qua Transaction Pooler cổng \texttt{6543} của Supabase (\texttt{...pooler.supabase.com:6543/postgres?pgbouncer=true}). \\ \hline
+\texttt{DIRECT\_URL} & Render \newline (\texttt{brewlite2-api}) & Chuỗi kết nối qua Session Pooler cổng \texttt{5432} của Supabase (\texttt{...pooler.supabase.com:5432/postgres}) phục vụ đồng bộ lược đồ Prisma. \\ \hline
+\texttt{JWT\_SECRET} & Render \newline (\texttt{brewlite2-api}) & Khóa bí mật dùng để ký và xác thực chữ ký số của \texttt{accessToken} (JWT) khi người dùng đăng nhập và đặt đơn. \\ \hline
+\texttt{FRONTEND\_URL} & Render \newline (\texttt{brewlite2-api}) & Khai báo tên miền chính thức của ứng dụng trên Vercel (\url{https://brew-lite-2.vercel.app}) để cấu hình CORS và sinh liên kết thanh toán qua mã QR. \\ \hline
+\end{tabular}
+\label{tab:env-summary}
+\end{table}
+
+Sau khi lưu biến môi trường \texttt{NEXT\_PUBLIC\_API\_URL} và triển khai từ nhánh \texttt{main}, Vercel tự động tải các gói thư viện phụ thuộc (\textit{dependencies}), nhúng biến \texttt{NEXT\_PUBLIC\_API\_URL} vào mã nguồn, biên dịch các trang giao diện của BrewLite và cấp phát tên miền chính thức là \url{https://brew-lite-2.vercel.app}.
+
+\paragraph{Bước 4: Cơ chế tự động cập nhật (CI/CD), quản lý tên miền và khôi phục phiên bản}
+\begin{itemize}
+    \item \textbf{Tự động triển khai khi có code mới (Auto-deploy Pipeline):} Mỗi khi một thành viên trong nhóm cập nhật mã nguồn và đẩy (\texttt{push}) lên nhánh \texttt{main} trên GitHub, Vercel tự động kích hoạt (trigger) đường ống pipeline, kéo bản code mới nhất về và tiến hành build bản mới mà không cần thao tác thủ công.
+    \item \textbf{Lịch sử triển khai và khôi phục nhanh (\textit{Deployment History \& Rollback}):} Toàn bộ các bản triển khai trước đó được Vercel lưu lại trong mục \textit{Deployments} kèm nhật ký build (\textit{Build Logs}). Khi phát hiện sự cố sau triển khai, nhóm có thể dùng tính năng \textbf{Instant Rollback} trên Vercel để quay về phiên bản ổn định trước đó chỉ trong vài giây (đáp ứng yêu cầu \texttt{NFR-08} và \texttt{NFR-10}).
+    \item \textbf{Quản lý đường dẫn và tên miền (\textit{Domains}):} Vercel cung cấp đường dẫn riêng cho từng lần deployment và tên miền chính thức \url{https://brew-lite-2.vercel.app} luôn trỏ tới bản ổn định mới nhất trên nhánh \texttt{main}.
+\end{itemize}
+
+\subsubsection{Kiểm tra hoạt động thực tế sau khi triển khai lên Cloud}
+Sau khi cả ba nền tảng \textbf{Vercel}, \textbf{Render} và \textbf{Supabase} đều báo trạng thái hoạt động xanh (Live/Ready), hệ thống có thể truy cập trực tuyến tại các địa chỉ:
+\begin{itemize}
+    \item \textbf{Ứng dụng Web Frontend (Vercel):} \url{https://brew-lite-2.vercel.app}
+    \item \textbf{Dịch vụ REST API \& Health Check (Render):} \url{https://brewlite2-api.onrender.com} (endpoint kiểm tra sức khỏe: \url{https://brewlite2-api.onrender.com/health})
+\end{itemize}
+
+Nhóm đã tiến hành kiểm tra thực tế toàn bộ luồng nghiệp vụ trên môi trường Cloud:
+\begin{enumerate}
+    \item \textbf{Luồng xem thực đơn và chọn món:} Trang chủ trên Vercel sử dụng biến \texttt{NEXT\_PUBLIC\_API\_URL} gọi thành công API \texttt{GET /products} từ Render và hiển thị đầy đủ danh sách 12 món nước từ bảng \texttt{Product} trên Supabase; thao tác tìm kiếm, lọc danh mục, chọn Size/Topping và lưu giỏ hàng hoạt động chính xác.
+    \item \textbf{Luồng đăng ký, đăng nhập và phân quyền:} Khi chuyển sang thanh toán mà chưa đăng nhập, trang web tự động điều hướng về \texttt{/login?redirect=/checkout}; kiểm thử đăng nhập thành công với cả tài khoản khách hàng (\texttt{customer@brewlite.vn}) và nhân viên quầy (\texttt{staff@brewlite.vn}) thông qua xác thực mật khẩu băm (\texttt{bcrypt}) trên Supabase.
+    \item \textbf{Luồng thanh toán không tiền mặt (QR MoMo), khuyến mãi và xử lý ngoại lệ:} Khi áp dụng mã ưu đãi (\texttt{BREWLITE10} cho khách hàng hoặc \texttt{STAFF20} cho nhân viên) và bấm \textit{Tạo mã QR MoMo}, yêu cầu \texttt{POST /orders} và \texttt{POST /payments} kèm \texttt{Idempotency-Key} thực thi trọn vẹn trong Prisma Transaction trên Supabase: đơn chuyển từ \texttt{PENDING} sang \texttt{PAID}, tồn kho (\texttt{stockQuantity}) giảm đúng số lượng đặt và điểm tích lũy (\texttt{loyaltyPoints}) được cộng chính xác vào tài khoản.
+\end{enumerate}
+
+\begin{figure}[H]
+\centering
+\chenHinh{width=0.88\textwidth,height=0.42\textheight,keepaspectratio}{production-live-https.png}
+\caption{Ứng dụng BrewLite hoạt động trực tuyến qua HTTPS trên Vercel (\texttt{brew-lite-2.vercel.app}) và dịch vụ Backend trực tuyến trên Render (\texttt{brewlite2-api})}
+\end{figure}
+
+% ==================== MỤC 5.3: MA TRẬN TRUY VẾT ====================
+\subsection{Ma trận truy vết yêu cầu (Requirements Traceability Matrix)}
+\textit{(Phụ trách thực hiện: Trần Thị Trúc Đào)}
+
+\small
+\renewcommand{\arraystretch}{1.22}
+\begin{longtable}{|p{0.10\textwidth}|p{0.27\textwidth}|p{0.22\textwidth}|p{0.22\textwidth}|p{0.11\textwidth}|}
+\caption{Ma trận truy vết từ Yêu cầu đến Thiết kế, Mã nguồn và Kiểm thử} \\
+\hline
+\textbf{Mã YC} & \textbf{Use-case / Chức năng} & \textbf{Sơ đồ Thiết kế} & \textbf{Mã nguồn / API} & \textbf{Mã Test} \\
+\hline
+\endfirsthead
+\hline
+\textbf{Mã YC} & \textbf{Use-case / Chức năng} & \textbf{Sơ đồ Thiết kế} & \textbf{Mã nguồn / API} & \textbf{Mã Test} \\
+\hline
+\endhead
+\hline
+\endfoot
+FR-01 & UC01 Xem thực đơn, tìm kiếm, lọc & UseCase, Class & \texttt{GET /products} & UNIT-01 \\
+\hline
+FR-02 & UC02 Xem chi tiết món & UseCase, Class & \texttt{GET /products/:id} & UNIT-02 \\
+\hline
+FR-03 & UC03 Chọn Size, Topping \& tính giá & UseCase, Class & \texttt{product-detail.tsx} & COMP-01 \\
+\hline
+FR-04..07 & UC04..06 Quản lý Giỏ hàng & UseCase, Activity & \texttt{cartStore / localStorage} & E2E-01 \\
+\hline
+FR-08..10 & UC07, UC08 Đăng ký, Đăng nhập JWT & UseCase, Sequence & \texttt{POST /auth/register, login} & UNIT-03 \\
+\hline
+FR-11, 12 & UC09 Tạo đơn \& Trừ tồn kho & Activity, Sequence, Class & \texttt{POST /orders} & INT-01 \\
+\hline
+FR-13 & UC10 Áp mã khuyến mãi & UseCase, Sequence, Class & \texttt{PromotionsService} & UNIT-04 \\
+\hline
+FR-14..16 & UC11 Thanh toán \& Idempotency & Activity, Sequence, Class & \texttt{POST /payments} & INT-02 \\
+\hline
+FR-17, 18 & UC13, UC16, UC17 Xác nhận \& Theo dõi đơn & UseCase, Activity & \texttt{GET /orders/me}, \texttt{PATCH /orders/:id/status} & E2E-02 \\
+\hline
+FR-19, 20 & UC12, UC14, UC15 Loyalty \& Hồ sơ & UseCase, Class & \texttt{GET /users/me} & INT-03 \\
+\hline
+NFR-07 & Kiểm tra sức khỏe hệ thống (Smoke Test) & Deployment & \texttt{GET /health} & SMOKE-01 \\
+\hline
+\end{longtable}
+\normalsize
+
+% ==================== MỤC 5.4: BẢNG PHÂN CÔNG 6 THÀNH VIÊN ====================
+\subsection{Bảng phân công nhiệm vụ các thành viên trong nhóm}
+\begin{table}[H]
+\centering
+\small
+\renewcommand{\arraystretch}{1.25}
+\caption{Phân công công việc chi tiết của 6 thành viên nhóm BrewLite}
+\begin{tabularx}{\textwidth}{|p{0.23\textwidth}|p{0.14\textwidth}|X|}
+\hline
+\textbf{Họ và tên (MSSV)} & \textbf{Vai trò} & \textbf{Hạng mục phụ trách (Tài liệu, Code, Kiểm thử \& Triển khai)} \\
+\hline
+Tô Phúc Khang \newline (3124410146) & Nhóm trưởng & Thiết kế kiến trúc phân lớp \& ADR, vẽ Deployment Diagram, thiết lập Monorepo \& Docker, code Module Payments/Promotions (\texttt{Idempotency-Key}, Promo, Loyalty), cấu hình CI/CD GitHub Actions, triển khai Supabase/Render và viết Unit Test. \\
+\hline
+Phan Lê Ngọc Như Ý \newline (3124720079) & Thành viên & Viết tài liệu bối cảnh \& Stakeholder (Task 1.1), code Module Products \& Seed DB, xây dựng giao diện Menu \& Chi tiết món (PWA, Loading/Empty/Error), viết 22 Unit Test API + 23 Component Test Web và tạo minh chứng PR CI. \\
+\hline
+Nguyễn Thị Tuyết Trâm \newline (3124560092) & Thành viên & Viết tài liệu SRS (20 FR \& 11 NFR), code Module Auth (Đăng ký, Đăng nhập, \texttt{JwtAuthGuard}, \texttt{GET /users/me}), xây dựng trang UI Đăng ký/Đăng nhập và viết Unit Test Auth. \\
+\hline
+Lương Thanh Tuấn \newline (3124410391) & Thành viên & Vẽ Sequence Diagram \& Class Diagram, thiết kế Prisma Schema 7 bảng \& đồng bộ Supabase, phối hợp code Module Products/Orders (Transaction kiểm tra \& trừ tồn kho) và API \texttt{GET /health}, viết Integration Test. \\
+\hline
+Nguyễn Thị Huyền Trang \newline (3124410364) & Thành viên & Vẽ Activity Diagram End-to-End, code Store Giỏ hàng (\texttt{useCartStore}), API \texttt{GET /orders/me} và giao diện Theo dõi trạng thái đơn hàng, viết kịch bản End-to-End (E2E) Test. \\
+\hline
+Trần Thị Trúc Đào \newline (3124720015) & Thành viên & Triển khai Frontend Next.js lên Vercel (\texttt{DJTEAM/brewlite-2}), cấu hình biến môi trường \texttt{NEXT\_PUBLIC\_API\_URL} kết nối Render/Supabase, viết tài liệu hướng dẫn deploy Cloud, bổ sung tính năng thanh toán mã QR MoMo, lập Ma trận truy vết yêu cầu và hỗ trợ E2E Test. \\
+\hline
+\end{tabularx}
+\end{table}
