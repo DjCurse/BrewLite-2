@@ -1,0 +1,75 @@
+@startuml activity-diagram
+title Activity Diagram - Luồng Đặt Món, Thanh Toán và Theo Dõi Đơn Hàng (BrewLite)
+skinparam backgroundColor white
+skinparam shadowing false
+
+|#LightYellow|Khách hàng (Customer)|
+start
+:Mở ứng dụng BrewLite & xem thực đơn;
+
+|#LightCyan|Frontend (Next.js PWA)|
+:Gọi GET /products & hiển thị danh sách món;
+
+|#LightYellow|Khách hàng (Customer)|
+:Chọn món, Size (S/M/L), Topping & thêm vào giỏ;
+:Nhấn "Tiến hành thanh toán" (/checkout);
+
+|#LightCyan|Frontend (Next.js PWA)|
+if (Đã đăng nhập có JWT hợp lệ?) then (Chưa đăng nhập)
+  :Chuyển hướng trang Đăng nhập (/login);
+  |#LightYellow|Khách hàng (Customer)|
+  :Nhập email & mật khẩu;
+  |#LightGreen|Backend (NestJS API)|
+  :POST /auth/login (kiểm tra bcrypt & cấp JWT);
+  |#LightCyan|Frontend (Next.js PWA)|
+  :Lưu Access Token & quay lại /checkout;
+else (Đã đăng nhập)
+endif
+
+|#LightYellow|Khách hàng (Customer)|
+:Nhập mã khuyến mãi (nếu có) & chọn MoMo QR / Thẻ;
+:Xác nhận đặt đơn và thanh toán;
+
+|#LightGreen|Backend (NestJS API)|
+:POST /orders (mở Database Transaction);
+:Kiểm tra tồn kho (stockQuantity >= quantity);
+
+if (Còn đủ tồn kho?) then (Hết hàng)
+  :Rollback Transaction;
+  |#LightCyan|Frontend (Next.js PWA)|
+  :Thông báo "Sản phẩm không đủ tồn kho";
+  |#LightYellow|Khách hàng (Customer)|
+  :Quay lại giỏ hàng điều chỉnh số lượng;
+  stop
+else (Đủ hàng)
+  |#LightGreen|Backend (NestJS API)|
+  :Trừ stockQuantity & tạo Order (PENDING);
+  :Commit Transaction;
+  :POST /payments (kèm Idempotency-Key);
+
+  |#LightPink|Payment Service|
+  :Xử lý giao dịch Ví MoMo QR / Thẻ;
+
+  if (Kết quả thanh toán?) then (Thất bại)
+    :Trả về trạng thái FAILED;
+    |#LightGreen|Backend (NestJS API)|
+    :Lưu Payment (FAILED), giữ Order ở PENDING;
+    |#LightCyan|Frontend (Next.js PWA)|
+    :Báo lỗi thanh toán & giữ nguyên giỏ hàng;
+    |#LightYellow|Khách hàng (Customer)|
+    :Thử thanh toán lại hoặc hủy;
+    stop
+  else (Thành công)
+    |#LightPink|Payment Service|
+    :Trả về SUCCESS & Transaction ID;
+    |#LightGreen|Backend (NestJS API)|
+    :Cập nhật Order -> PAID & Payment -> SUCCESS;
+    :Ghi nhận LoyaltyTransaction (cộng điểm thưởng);
+    |#LightCyan|Frontend (Next.js PWA)|
+    :Xóa giỏ hàng & mở trang Theo dõi đơn (/orders);
+    |#LightYellow|Khách hàng (Customer)|
+    :Theo dõi tiến trình (PREPARING -> READY -> COMPLETED);
+    stop
+  endif
+endif
+@enduml

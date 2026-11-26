@@ -1,11 +1,16 @@
 @startuml class-diagram
 title Class Diagram - Domain Model (BrewLite System)
 skinparam backgroundColor white
+
 enum OrderStatus {
     PENDING
-    PAID
-    CANCELLED
+    CONFIRMED
+    PREPARING
+    READY
     COMPLETED
+    PAID
+    PAYMENT_FAILED
+    CANCELLED
 }
 
 enum PaymentStatus {
@@ -16,9 +21,9 @@ enum PaymentStatus {
 }
 
 enum PaymentMethod {
-    CREDIT_CARD
-    MOMO
-    VNPAY
+    WALLET
+    CARD
+    QR_CODE
     CASH
 }
 
@@ -47,18 +52,19 @@ class Product {
     + String name
     + String category
     + String description
-    + Decimal price
+    + Int price
     + String imageUrl
-    + Int stock
-    + Boolean isAvailable
+    + Int stockQuantity
+    + Boolean isActive
 }
 
 class Order {
     + String id
     + String userId
-    + Decimal total
-    + Decimal discount
-    + Decimal finalTotal
+    + String? promotionId
+    + Int totalAmount
+    + Int discountAmount
+    + Int finalAmount
     + OrderStatus status
     + String idempotencyKey
     + DateTime createdAt
@@ -68,9 +74,11 @@ class OrderItem {
     + String id
     + String orderId
     + String productId
+    + String size
+    + String[] toppings
     + Int quantity
-    + Decimal unitPrice
-    + Decimal lineTotal
+    + Int unitPrice
+    + Int totalPrice
 }
 
 class Payment {
@@ -79,7 +87,7 @@ class Payment {
     + String transactionId
     + PaymentMethod method
     + PaymentStatus status
-    + Decimal amount
+    + Int amount
     + DateTime paidAt
 }
 
@@ -87,8 +95,12 @@ class Promotion {
     + String id
     + String code
     + PromotionType type
-    + Decimal value
-    + Decimal minOrderValue
+    + Int value
+    + Int minOrderValue
+    + Boolean staffOnly
+    + Int? maxUses
+    + Int usedCount
+    + Int? perUserLimit
     + DateTime startDate
     + DateTime endDate
     + Boolean isActive
@@ -103,7 +115,6 @@ class LoyaltyTransaction {
     + DateTime createdAt
 }
 
-' Relations & Multiplicity
 User "1" -- "0..*" Order : places >
 User "1" -- "0..*" LoyaltyTransaction : owns >
 
@@ -112,7 +123,6 @@ Order "1" -- "0..1" Payment : processed_by >
 Order "0..*" -- "0..1" Promotion : applies >
 
 Product "1" -- "0..*" OrderItem : referenced_in >
-
 Order "1" -- "0..1" LoyaltyTransaction : generates >
 
 @enduml
