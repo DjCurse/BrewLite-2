@@ -5,7 +5,8 @@ left to right direction
 skinparam packageStyle rectangle
 skinparam actorStyle awesome
 skinparam shadowing false
-skinparam linetype ortho
+skinparam nodesep 35
+skinparam ranksep 65
 skinparam defaultFontName Arial
 skinparam defaultFontSize 13
 skinparam backgroundColor white
@@ -41,7 +42,7 @@ rectangle "BrewLite - Hệ thống đặt cà phê không dùng tiền mặt" {
     package "Đặt đơn & thanh toán" {
         usecase "UC09\nĐặt đơn hàng" as UC09
         usecase "UC10\nÁp mã khuyến mãi" as UC10
-        usecase "UC11\nThanh toán không tiền mặt\n(Ví/Thẻ)" as UC11
+        usecase "UC11\nThanh toán không tiền mặt\n(Ví MoMo QR / Thẻ)" as UC11
         usecase "UC12\nTích điểm thưởng" as UC12
         usecase "UC13\nXem xác nhận đơn" as UC13
     }
@@ -59,7 +60,6 @@ rectangle "BrewLite - Hệ thống đặt cà phê không dùng tiền mặt" {
     }
 }
 
-'================ ASSOCIATIONS ================
 KH -- UC01
 KH -- UC06
 KH -- UC07
@@ -69,20 +69,17 @@ KH -- UC11
 KH -- UC14
 PG -- UC11
 
-'================ MENU & GIỎ HÀNG ================
 UC02 ..> UC01 : <<extend>>
 UC04 ..> UC02 : <<extend>>
 UC04 ..> UC03 : <<include>>
 UC05 ..> UC06 : <<extend>>
 
-'================ ĐẶT ĐƠN & THANH TOÁN ================
 UC09 ..> UC08 : <<include>>
 UC11 ..> UC09 : <<include>>
 UC10 ..> UC09 : <<extend>>
-UC12 ..> UC11 : <<extend>>\n[thanh toán thành công]
-UC13 ..> UC11 : <<extend>>\n[thanh toán thành công]
+UC12 ..> UC11 : <<extend>>\n[Đơn sang PAID]
+UC13 ..> UC11 : <<extend>>\n[Thanh toán thành công]
 
-'================ HỒ SƠ CÁ NHÂN ================
 UC14 ..> UC08 : <<include>>
 UC15 ..> UC14 : <<extend>>
 UC16 ..> UC14 : <<extend>>\n[xem đơn đã đặt]

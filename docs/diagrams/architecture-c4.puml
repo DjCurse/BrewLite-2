@@ -1,0 +1,68 @@
+@startuml architecture-c4
+top to bottom direction
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam componentStyle uml2
+skinparam defaultFontName Arial
+skinparam defaultFontSize 12
+skinparam rectangle {
+    BackgroundColor white
+    BorderColor #333333
+}
+skinparam component {
+    BackgroundColor #F7F9F7
+    BorderColor #4A6B4A
+}
+skinparam database {
+    BackgroundColor #EBF3EB
+    BorderColor #4A6B4A
+}
+
+actor "Khách hàng\n(Customer)" as Customer
+
+rectangle "1. Presentation Layer — apps/web (Next.js Mobile-First PWA)" as Layer1 {
+    component "Pages & App Router\n(/, /products/[id], /cart, /login, /register, /checkout, /orders)" as Pages
+    component "Client State Store\n(Zustand useCartStore + localStorage sync)" as Store
+    component "API Client Wrapper\n(Fetch + Bearer JWT + Idempotency-Key Generator)" as ApiClient
+
+    Pages --> Store : Đọc/Ghi giỏ hàng
+    Pages --> ApiClient : Gọi REST API
+}
+
+rectangle "2. Application & Domain Layer — apps/api (NestJS Modular Architecture)" as Layer2 {
+    component "Cross-Cutting Concerns\n• JwtAuthGuard (Xác thực & Phân quyền)\n• ValidationPipe (DTO Whitelist)\n• Structured Logger & ConfigModule" as CrossCutting
+
+    rectangle "Domain Modules" as DomainModules {
+        component "OrdersModule\n(POST /orders, GET /orders/me,\nPATCH /orders/:id/status)" as OrdersMod
+        component "ProductsModule\n(GET /products,\nGET /products/:id)" as ProductsMod
+        component "Auth & Users Module\n(POST /auth/register, /login,\nGET /users/me)" as AuthMod
+        component "Payments & Promotions\n(POST /payments, /promotions/validate\n+ Idempotency & Loyalty)" as PaymentsMod
+        component "HealthModule\n(GET /health)" as HealthMod
+    }
+
+    component "Data Access Layer — PrismaService\n(Transaction Manager & Schema Migrations)" as Prisma
+    component "Mock Payment Gateway Adapter\n(Xử lý Ví MoMo QR / Thẻ & Giả lập PAYMENT_FAILED)" as MockPayment
+
+    CrossCutting --> OrdersMod
+    CrossCutting --> ProductsMod
+    CrossCutting --> AuthMod
+    CrossCutting --> PaymentsMod
+    CrossCutting --> HealthMod
+
+    OrdersMod --> Prisma : Database Transaction\n(Kiểm tra & trừ stockQuantity)
+    ProductsMod --> Prisma
+    AuthMod --> Prisma
+    PaymentsMod --> Prisma : Database Transaction\n(Idempotency + Promo + Loyalty)
+    PaymentsMod --> MockPayment : Gọi thanh toán mô phỏng
+    HealthMod --> Prisma : SELECT 1 (Ping DB)
+}
+
+rectangle "3. Data Storage Layer (PostgreSQL)" as Layer3 {
+    database "PostgreSQL Database\n(User, Product, Order, OrderItem,\nPayment, Promotion, LoyaltyTransaction)" as DB
+}
+
+Customer --> Pages : Tương tác trên trình duyệt (HTTPS)
+ApiClient --> CrossCutting : HTTPS / JSON Request
+Prisma --> DB : TCP :6543 / :5432\n(Prisma Queries & Migrations)
+
+@enduml

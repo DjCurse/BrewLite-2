@@ -212,21 +212,23 @@ NFR-07 & Kiểm tra sức khỏe hệ thống (Smoke Test) & Deployment & \textt
 \small
 \renewcommand{\arraystretch}{1.25}
 \caption{Phân công công việc chi tiết của 6 thành viên nhóm BrewLite}
-\begin{tabularx}{\textwidth}{|p{0.23\textwidth}|p{0.14\textwidth}|X|}
+\begin{tabularx}{\textwidth}{|p{0.22\textwidth}|p{0.13\textwidth}|X|>{\centering\arraybackslash}p{0.13\textwidth}|}
 \hline
-\textbf{Họ và tên (MSSV)} & \textbf{Vai trò} & \textbf{Hạng mục phụ trách (Tài liệu, Code, Kiểm thử \& Triển khai)} \\
+\textbf{Họ và tên (MSSV)} & \textbf{Vai trò} & \textbf{Hạng mục phụ trách (Tài liệu, Code, Kiểm thử \& Triển khai)} & \textbf{Phần trăm nhiệm vụ} \\
 \hline
-Tô Phúc Khang \newline (3124410146) & Nhóm trưởng & Thiết kế kiến trúc phân lớp \& ADR, vẽ Deployment Diagram, thiết lập Monorepo \& Docker, code Module Payments/Promotions (\texttt{Idempotency-Key}, Promo, Loyalty), cấu hình CI/CD GitHub Actions, triển khai Supabase/Render và viết Unit Test. \\
+Tô Phúc Khang \newline (3124410146) & Nhóm trưởng & Thiết kế kiến trúc phân lớp \& ADR, vẽ Deployment Diagram, thiết lập Monorepo \& Docker, code Module Payments/Promotions (\texttt{Idempotency-Key}, Promo, Loyalty), cấu hình CI/CD GitHub Actions, triển khai Supabase/Render và viết Unit Test. & 16,67\% \\
 \hline
-Phan Lê Ngọc Như Ý \newline (3124720079) & Thành viên & Viết tài liệu bối cảnh \& Stakeholder (Task 1.1), code Module Products \& Seed DB, xây dựng giao diện Menu \& Chi tiết món (PWA, Loading/Empty/Error), viết 22 Unit Test API + 23 Component Test Web và tạo minh chứng PR CI. \\
+Phan Lê Ngọc Như Ý \newline (3124720079) & Thành viên & Viết tài liệu bối cảnh \& Stakeholder (Task 1.1), code Module Products \& Seed DB, xây dựng giao diện Menu \& Chi tiết món (PWA, Loading/Empty/Error), viết 22 Unit Test API + 23 Component Test Web và tạo minh chứng PR CI. & 16,67\% \\
 \hline
-Nguyễn Thị Tuyết Trâm \newline (3124560092) & Thành viên & Viết tài liệu SRS (20 FR \& 11 NFR), code Module Auth (Đăng ký, Đăng nhập, \texttt{JwtAuthGuard}, \texttt{GET /users/me}), xây dựng trang UI Đăng ký/Đăng nhập và viết Unit Test Auth. \\
+Nguyễn Thị Tuyết Trâm \newline (3124560092) & Thành viên & Viết tài liệu SRS (20 FR \& 11 NFR), code Module Auth (Đăng ký, Đăng nhập, \texttt{JwtAuthGuard}, \texttt{GET /users/me}), xây dựng trang UI Đăng ký/Đăng nhập và viết Unit Test Auth. & 16,67\% \\
 \hline
-Lương Thanh Tuấn \newline (3124410391) & Thành viên & Vẽ Sequence Diagram \& Class Diagram, thiết kế Prisma Schema 7 bảng \& đồng bộ Supabase, phối hợp code Module Products/Orders (Transaction kiểm tra \& trừ tồn kho) và API \texttt{GET /health}, viết Integration Test. \\
+Lương Thanh Tuấn \newline (3124410391) & Thành viên & Vẽ Sequence Diagram \& Class Diagram, thiết kế Prisma Schema 7 bảng \& đồng bộ Supabase, phối hợp code Module Products/Orders (Transaction kiểm tra \& trừ tồn kho) và API \texttt{GET /health}, viết Integration Test. & 16,67\% \\
 \hline
-Nguyễn Thị Huyền Trang \newline (3124410364) & Thành viên & Vẽ Activity Diagram End-to-End, code Store Giỏ hàng (\texttt{useCartStore}), API \texttt{GET /orders/me} và giao diện Theo dõi trạng thái đơn hàng, viết kịch bản End-to-End (E2E) Test. \\
+Nguyễn Thị Huyền Trang \newline (3124410364) & Thành viên & Vẽ Activity Diagram End-to-End, code Store Giỏ hàng (\texttt{useCartStore}), API \texttt{GET /orders/me} và giao diện Theo dõi trạng thái đơn hàng, viết kịch bản End-to-End (E2E) Test. & 16,67\% \\
 \hline
-Trần Thị Trúc Đào \newline (3124720015) & Thành viên & Triển khai Frontend Next.js lên Vercel (\texttt{DJTEAM/brewlite-2}), cấu hình biến môi trường \texttt{NEXT\_PUBLIC\_API\_URL} kết nối Render/Supabase, viết tài liệu hướng dẫn deploy Cloud, bổ sung tính năng thanh toán mã QR MoMo, lập Ma trận truy vết yêu cầu và hỗ trợ E2E Test. \\
+Trần Thị Trúc Đào \newline (3124720015) & Thành viên & Triển khai Frontend Next.js lên Vercel (\texttt{DJTEAM/brewlite-2}), cấu hình biến môi trường \texttt{NEXT\_PUBLIC\_API\_URL} kết nối Render/Supabase, viết tài liệu hướng dẫn deploy Cloud, bổ sung tính năng thanh toán mã QR MoMo, lập Ma trận truy vết yêu cầu và hỗ trợ E2E Test. & 16,67\% \\
+\hline
+\multicolumn{3}{|r|}{\textbf{Tổng cộng}} & \textbf{100\%} \\
 \hline
 \end{tabularx}
 \end{table}

@@ -1,0 +1,52 @@
+@startuml deployment-diagram
+title Deployment Diagram - Môi trường Production & CI/CD (BrewLite)
+skinparam backgroundColor white
+skinparam shadowing false
+
+node "Client Device (Mobile / Desktop)" as Client {
+    artifact "Web Browser / PWA\n(Next.js Client & localStorage)" as Browser
+}
+
+cloud "Boundary 1: Local Development (docker-compose.yml)" as Local {
+    node "Docker Host (Local)" {
+        component "brewlite-web\n(Next.js :3000)" as LocalWeb
+        component "brewlite-api\n(NestJS :3001)" as LocalApi
+        database "PostgreSQL 16\n(Port 5433:5432)" as LocalDb
+        LocalWeb --> LocalApi : HTTP
+        LocalApi --> LocalDb : TCP :5432
+    }
+}
+
+cloud "Boundary 2: CI/CD Pipeline (GitHub)" as CICD {
+    node "GitHub Repository\n(DjCurse/BrewLite-2)" as Repo
+    node "GitHub Actions Runner" as Actions {
+        component "CI Quality Gate\n(Install -> Lint -> Test -> Build)" as CI
+    }
+    Repo --> Actions : Pull Request / Push main
+}
+
+cloud "Boundary 3: Production Cloud (Singapore)" as Prod {
+    node "Vercel Edge Network\n(Team: DJTEAM / brew-lite-2.vercel.app)" as Vercel {
+        component "Next.js Frontend App\n(Env: NEXT_PUBLIC_API_URL)" as ProdWeb
+    }
+
+    node "Render Web Service\n(brewlite2-api / srv-dc35clh5efis73as92v0)" as Render {
+        component "NestJS REST API\n(Port 3001, /health, JWT, Prisma)\nEnv: DATABASE_URL, DIRECT_URL,\nJWT_SECRET, FRONTEND_URL" as ProdApi
+        component "Mock Payment Gateway\n(MoMo QR / Card Idempotent)" as PayMock
+        ProdApi --> PayMock : Internal Call
+    }
+
+    node "Supabase Cloud\n(AWS ap-southeast-1 / govkrnveqrjhklieiwbk)" as Supabase {
+        database "Managed PostgreSQL\n(7 Tables + Persistent Storage)\nPooler :6543 & Direct :5432" as ProdDb
+    }
+}
+
+Browser --> ProdWeb : HTTPS (TLS 1.3 / 443)
+Browser --> ProdApi : HTTPS REST/JSON + Bearer JWT\n+ Idempotency-Key
+ProdWeb ..> ProdApi : NEXT_PUBLIC_API_URL
+ProdApi --> ProdDb : SSL/TLS (PgBouncer :6543 / :5432)
+
+Actions ..> Vercel : Auto Deploy (main)
+Actions ..> Render : Auto Deploy + Smoke Test (/health)
+
+@enduml
