@@ -22,14 +22,14 @@
 \usepackage{hyperref}
 \hypersetup{urlcolor=blue,linkcolor=black,citecolor=black,colorlinks=true}
 
-% Macro tự động hiển thị ảnh và xử lý an toàn tên file có dấu gạch dưới (_)
+% Macro tự động hiển thị ảnh và kiểm tra đúng đường dẫn thư mục
 \newcommand{\chenHinh}[2]{%
   \IfFileExists{#2}{%
     \includegraphics[#1]{#2}%
   }{%
     \fbox{\parbox{0.88\textwidth}{\centering\vspace{0.7cm}%
-      \textbf{[Chưa tải file ảnh: \texttt{\detokenize{#2}} lên Overleaf]}\\
-      {\footnotesize (Hãy tải file \texttt{\detokenize{#2}} lên cùng thư mục với \texttt{main.tex})}%
+      \textbf{[Không tìm thấy file ảnh: \texttt{\detokenize{#2}}]}\\
+      {\footnotesize (Kiểm tra lại file trong thư mục \texttt{docs/report/picture/} hoặc \texttt{docs/diagrams/})}%
     \vspace{0.7cm}}}%
   }%
 }
@@ -40,7 +40,7 @@
 \fancyhead[L]{
  \begin{tabular}{rl}
     \begin{picture}(25,15)(0,0)
-    \put(0,-8){\IfFileExists{logoITSGUsmall.png}{\includegraphics[width=8mm, height=8mm]{logoITSGUsmall.png}}{}}
+    \put(0,-8){\IfFileExists{picture/logoITSGUsmall.png}{\includegraphics[width=8mm, height=8mm]{picture/logoITSGUsmall.png}}{}}
    \end{picture}&
 	\begin{tabular}{l}
 		\textbf{\ttfamily Trường Đại học Sài Gòn}\\
@@ -75,7 +75,7 @@
 
 \begin{figure}[h!]
 \begin{center}
-\IfFileExists{logoITSGU.png}{\includegraphics[width=3cm]{logoITSGU.png}}{}
+\IfFileExists{picture/logoITSGU.png}{\includegraphics[width=3cm]{picture/logoITSGU.png}}{}
 \end{center}
 \end{figure}
 
