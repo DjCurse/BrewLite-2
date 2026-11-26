@@ -1,196 +1,195 @@
-# BrewLite — Hệ thống Đặt món & Thanh toán Quán Cà phê
+# BrewLite — Hệ thống Đặt Đồ Uống & Quản Lý Vận Hành Cửa Hàng
 
-Ứng dụng web full-stack hỗ trợ khách hàng đặt đồ uống tùy chỉnh (Size, Topping), áp dụng mã khuyến mãi thời gian thực, thanh toán đa phương thức (Ví MoMo QR, Tiền mặt tại quầy, Thẻ) và theo dõi tiến độ pha chế theo máy trạng thái đơn hàng.
+Ứng dụng web đặt đồ uống theo định hướng **Mobile-first / PWA**, xây dựng theo kiến trúc **Monorepo** với **Next.js**, **NestJS**, **Prisma ORM** và **PostgreSQL**. Hệ thống chuẩn hóa toàn bộ quy trình từ duyệt thực đơn, tùy chọn Size/Topping, quản lý giỏ hàng, đặt đơn nguyên tử, thanh toán không tiền mặt (Ví MoMo QR / Thẻ) đến theo dõi trạng thái đơn hàng và tích điểm thưởng khách hàng thân thiết.
 
 ---
 
-## 1. Kiến trúc & Công nghệ sử dụng
+## 1. Liên kết triển khai trực tuyến (Production)
 
-Dự án được tổ chức theo cấu trúc Monorepo gồm 2 ứng dụng chính và cơ sở dữ liệu độc lập:
+- **Ứng dụng Web Frontend (Vercel):** https://brew-lite-2.vercel.app
+- **Dịch vụ REST API Backend (Render):** https://brewlite2-api.onrender.com
+- **Endpoint kiểm tra sức khỏe (Health Check):** https://brewlite2-api.onrender.com/health
 
-* **Frontend (`apps/web`):** Next.js (App Router), React, TypeScript, Tailwind CSS (cổng `3000`).
-* **Backend (`apps/api`):** NestJS, Prisma ORM, `class-validator`, JWT Authentication (cổng `3001`).
-* **Database:** PostgreSQL 16 (`postgres:16-alpine`), chạy qua Docker ở cổng `5433` (tránh xung đột với PostgreSQL cài sẵn trên Windows ở cổng `5432`).
+### Tài khoản mẫu (Database Seed)
+Dữ liệu khởi tạo mẫu (`apps/api/prisma/seed.ts`) cung cấp sẵn **12 món đồ uống** thuộc 4 danh mục (*Trà sữa, Matcha, Cà phê, Trà trái cây*), **4 mã khuyến mãi** (`BREWLITE10`, `STAFF20`, `SGU2026`, `FREESHIP`) và **3 tài khoản theo vai trò**:
+
+| Vai trò | Email đăng nhập | Mật khẩu | Ghi chú quyền hạn |
+| :--- | :--- | :--- | :--- |
+| **Khách hàng** (`CUSTOMER`) | `customer@brewlite.vn` | `Customer123` | Đặt đơn, áp mã `BREWLITE10`, thanh toán, tích điểm Loyalty |
+| **Nhân viên quầy** (`STAFF`) | `staff@brewlite.vn` | `Staff123` | Áp dụng được mã ưu đãi nội bộ `STAFF20` (`staffOnly`) và cập nhật trạng thái đơn |
+| **Quản trị viên** (`ADMIN`) | `admin@brewlite.vn` | `Admin123` | Toàn quyền quản trị hệ thống |
+
+---
+
+## 2. Công nghệ & Kiến trúc hệ thống
+
+- **Frontend (`apps/web`):** Next.js (App Router), TypeScript, Tailwind CSS, Zustand (`useCartStore` đồng bộ `localStorage`), PWA (`manifest.ts`, Service Worker `sw.js`, `offline.html`).
+- **Backend (`apps/api`):** NestJS (Modular Monolith: `ProductsModule`, `AuthModule`, `OrdersModule`, `PaymentsModule`, `PromotionsModule`, `HealthModule`), xác thực JWT (`JwtAuthGuard`), mã hóa mật khẩu `bcrypt`, xử lý giao dịch nguyên tử (`prisma.$transaction`) và chống thanh toán lặp qua header `Idempotency-Key`.
+- **Database & ORM:** PostgreSQL 16 & Prisma ORM với 7 thực thể cốt lõi (`User`, `Product`, `Order`, `OrderItem`, `Payment`, `Promotion`, `LoyaltyTransaction`).
+- **CI/CD & Cloud:** Docker Compose, GitHub Actions (`.github/workflows/ci.yml`), Supabase PostgreSQL (`ap-southeast-1`), Render Web Service và Vercel Edge Network.
+
+---
+
+## 3. Cấu trúc thư mục Monorepo
 
 ```text
-BrewLite_2/
+BrewLite-2/
+├── .github/
+│   └── workflows/
+│       └── ci.yml                          # Pipeline CI tự động (Install -> Lint -> Test -> Build)
 ├── apps/
-│   ├── api/                 # Backend NestJS + Prisma Schema & Seed
-│   └── web/                 # Frontend Next.js (Menu, Cart, Checkout, Mock MoMo, Orders)
-├── docker-compose.yml       # Cấu hình container Postgres, API, Web
-└── check-all.ps1            # Script kiểm thử tự động 6 bước (Build, Unit Test, E2E, Lint)
+│   ├── api/                                # Backend NestJS + Prisma
+│   │   ├── prisma/
+│   │   │   ├── schema.prisma               # Lược đồ 7 bảng & các Enum trạng thái
+│   │   │   ├── seed.ts                     # Script nạp dữ liệu mẫu chạy lặp an toàn (Idempotent)
+│   │   │   └── seed-data.ts
+│   │   └── src/
+│   │       ├── auth/                       # Đăng ký, đăng nhập JWT, JwtAuthGuard
+│   │       ├── products/                   # Danh sách phân trang/lọc/tìm kiếm & chi tiết sản phẩm
+│   │       ├── orders/                     # Tạo đơn Transaction, trừ tồn kho & cập nhật trạng thái
+│   │       ├── payments/                   # Thanh toán Ví MoMo QR / Thẻ, Idempotency-Key & Loyalty
+│   │       ├── promotions/                 # Kiểm tra điều kiện và tính giảm giá mã khuyến mãi
+│   │       ├── prisma/                     # PrismaService dùng chung
+│   │       └── health/                     # Endpoint GET /health
+│   └── web/                                # Frontend Next.js (Mobile-first / PWA)
+│       ├── app/                            # App Router (/, /products/[id], /cart, /login, /checkout, /orders)
+│       ├── components/                     # Giao diện Menu, Chi tiết món, Giỏ hàng, Checkout, Order Stepper
+│       ├── lib/                            # API Client, bảng phụ thu Size/Topping, useCartStore
+│       ├── public/                         # PWA Service Worker (sw.js), offline.html, icons
+│       └── __tests__/                      # Component Test (Vitest + Testing Library)
+├── docs/
+│   ├── requirements/
+│   │   ├── context-and-scope.md            # Bối cảnh nghiệp vụ, Stakeholder, In/Out-of-scope, Rủi ro
+│   │   ├── srs.md                          # Đặc tả 20 FR & 11 NFR theo chuẩn MoSCoW
+│   │   └── use-case-checkout.md            # Đặc tả Use-case chi tiết Đặt đơn & Thanh toán
+│   ├── diagrams/                           # Mã nguồn PlantUML (.puml) & sơ đồ kết xuất (.png/.svg)
+│   ├── architecture/
+│   │   ├── system-architecture.md          # Kiến trúc phân lớp & Modular Monolith
+│   │   ├── deployment.md                   # Hướng dẫn triển khai Docker, Cloud & Rollback
+│   │   └── adr/                            # Các quyết định kiến trúc (001, 002, 003)
+│   ├── report/                             # Báo cáo LaTeX hoàn chỉnh (5 chương)
+│   ├── sprint-review-retrospective.md      # Tổng kết Sprint 1 & Sprint 2
+│   └── traceability-matrix.md              # Ma trận truy vết từ FR/NFR đến Sơ đồ, API và Test
+├── tests/
+│   └── orders-payments.int-spec.ts         # Integration Test & E2E Test
+├── docker-compose.yml                      # Khởi chạy đồng bộ Web, API và PostgreSQL 16
+└── README.md
 ```
 
 ---
 
-## 2. Các tính năng đã hoàn thiện
+## 4. Hướng dẫn cài đặt và chạy trên máy cục bộ (Local)
 
-### 2.1. Thực đơn & Giỏ hàng tùy chỉnh (`/`, `/cart`)
-* Chọn kích cỡ đồ uống (**Size S**: `+0đ`, **Size M**: `+5.000đ`, **Size L**: `+10.000đ`) và nhiều loại **Topping** (*Thạch*, *Trân châu*, *Pudding*, *Kem cheese*...).
-* Tự động tính tạm tính từng dòng và đồng bộ trạng thái giỏ hàng qua `localStorage` (`brewlite_cart`, `brewlite_promo_code`).
+### Cách 1: Chạy nhanh bằng Docker Compose (Khuyến nghị)
 
-### 2.2. Kiểm tra mã khuyến mãi thời gian thực (`POST /payments/validate-promo`)
-* Kiểm tra trực tiếp điều kiện mã giảm giá dưới Database (`isActive`, `startDate`, `endDate`, `minOrderValue`, loại giảm `PERCENTAGE` hoặc `FIXED_AMOUNT`) ngay khi người dùng nhập mã ở trang `/cart` và `/checkout`.
-* Cảnh báo ngay lập tức nếu mã hết hạn, không tồn tại hoặc đơn hàng chưa đạt giá trị tối thiểu trước khi bước sang thanh toán.
-
-### 2.3. Thanh toán đa phương thức & Giao dịch nguyên tử (`/checkout`, `POST /payments`)
-* **Chống thanh toán đúp (Idempotency):** Bắt buộc header `Idempotency-Key` cho mỗi phiên thanh toán để đảm bảo không tạo trùng đơn hàng hoặc trừ tiền hai lần.
-* **Toàn vẹn dữ liệu (`prisma.$transaction`):** Tự động kiểm tra tồn kho (`stockQuantity`), tính tổng giá gốc kèm phụ thu Size + Topping trên server, áp dụng giảm giá, trừ tồn kho, tạo `Order` (`PAID`), tạo `Payment` (`SUCCESS`) và cộng điểm thưởng **Loyalty** (`10.000đ = 1 điểm`).
-* **3 phương thức thanh toán:**
-  1. **Ví MoMo (Quét mã QR):** Sinh mã QR động trỏ tới cổng giả lập `/mock-payment` kèm payload đơn hàng; hỗ trợ xác nhận trên tab mới hoặc thiết bị khác và tự động đồng bộ trạng thái về `/checkout` (polling `GET /orders/me` mỗi 3 giây + nút kiểm tra thủ công).
-  2. **Tiền mặt tại quầy (`CASH`):** Hỗ trợ nhập số tiền khách đưa, gợi ý mệnh giá nhanh, tự động tính tiền còn thiếu hoặc tiền thối lại khách và hiển thị trên biên lai.
-  3. **Thẻ tín dụng / Ghi nợ (`CREDIT_CARD`):** Thanh toán trực tiếp và xuất hóa đơn xác nhận.
-
-### 2.4. Theo dõi đơn hàng & Máy trạng thái (`/orders`, `PATCH /orders/:id/status`)
-* **Máy trạng thái đơn hàng (`OrderStatusMachine`):**
-  * `PENDING` *(Đã đặt)* $\rightarrow$ `PAID` *(Đang pha chế)* $\rightarrow$ `COMPLETED` *(Sẵn sàng nhận)*.
-  * Cho phép hủy (`CANCELLED`) khi đơn đang ở `PENDING` hoặc `PAID`; chặn nhảy cóc hoặc đi lùi trạng thái.
-* **Phân quyền (`JwtAuthGuard`):**
-  * Tài khoản `CUSTOMER` chỉ xem được đơn của mình (`GET /orders/me`) và chỉ được phép hủy đơn của chính mình.
-  * Tài khoản `STAFF` / `ADMIN` có quyền cập nhật tiến độ đơn hàng sang `COMPLETED`.
-* **API Sandbox tích hợp:** Bảng kiểm thử nhanh ngay trên giao diện giúp đăng nhập lấy JWT Token, truy vấn `GET /orders/me` và gọi `PATCH /orders/:id/status`.
-
----
-
-## 3. Hướng dẫn kích hoạt & Chạy Local
-
-### 3.1. Yêu cầu môi trường
-* **Node.js** >= 20.x và **npm** >= 10.x
-* **Docker Desktop** (đang mở và chạy ổn định)
-
-### 3.2. Bước 1 — Khởi động Database PostgreSQL (cổng `5433`)
-Mở PowerShell tại thư mục gốc dự án và bật riêng container database `brewlite2-postgres`:
-
-```powershell
-cd E:\Software_Technology\BrewLite_2
-docker compose up -d postgres
-docker ps
+1. **Clone kho mã nguồn và tạo tệp biến môi trường:**
+```bash
+git clone [https://github.com/DjCurse/BrewLite-2.git](https://github.com/DjCurse/BrewLite-2.git)
+cd BrewLite-2
+cp .env.example .env
 ```
 
-> **Lưu ý:** Nếu đã từng chạy `docker compose up` trước đó, chỉ dùng `docker start brewlite2-postgres` để tránh các container `api`/`web` cũ chiếm mất cổng `3001` và `3000`. Đảm bảo cột `PORTS` hiển thị `0.0.0.0:5433->5432/tcp`.
+2. **Khởi động toàn bộ hệ thống (Frontend, Backend, PostgreSQL 16):**
+```bash
+docker compose up -d --build
+```
 
-### 3.3. Bước 2 — Cấu hình biến môi trường & Khởi tạo dữ liệu
-1. **Backend (`apps/api/.env`):**
-   ```env
-   DATABASE_URL="postgresql://postgres:postgres@localhost:5433/brewlite?schema=public"
-   JWT_SECRET="brewlite-super-secret-jwt-key-2026"
-   PORT=3001
-   ```
-2. **Frontend (`apps/web/.env.local`):**
-   ```env
-   NEXT_PUBLIC_API_URL="http://localhost:3001"
-   ```
-3. **Đồng bộ Prisma Schema & Nạp dữ liệu mẫu (`seed`):**
-   ```powershell
-   cd E:\Software_Technology\BrewLite_2\apps\api
-   npm install
-   npx prisma generate
-   npx prisma db push
-   npx prisma db seed
-   ```
+3. **Đồng bộ lược đồ cơ sở dữ liệu và nạp dữ liệu mẫu:**
+```bash
+docker compose exec api npx prisma db push
+docker compose exec api npx prisma db seed
+```
 
-### 3.4. Bước 3 — Khởi động Backend & Frontend
-Mở 2 cửa sổ PowerShell riêng biệt:
-
-* **Terminal 1 — Chạy Backend API (cổng `3001`):**
-  ```powershell
-  cd E:\Software_Technology\BrewLite_2\apps\api
-  npm run start:dev
-  ```
-
-* **Terminal 2 — Chạy Frontend Web (cổng `3000`):**
-  ```powershell
-  cd E:\Software_Technology\BrewLite_2\apps\web
-  npm install
-  npm run dev
-  ```
-
-Truy cập ứng dụng tại: **http://localhost:3000**
-
-### 3.5. Chạy toàn bộ bằng Docker hoặc Script kiểm thử 6 bước
-* **Chạy cả 3 service qua Docker (nhớ kèm `--build` khi có sửa code):**
-  ```powershell
-  docker compose up -d --build
-  ```
-* **Chạy kiểm tra tự động toàn bộ dự án (Build, Unit Test, E2E Test, Lint):**
-  ```powershell
-  cd E:\Software_Technology\BrewLite_2
-  powershell -ExecutionPolicy Bypass -File .\check-all.ps1
-  ```
-
-### 3.6. Dữ liệu dùng thử mặc định
-* **Tài khoản khách hàng:** `customer@brewlite.vn` *(mật khẩu xem trong `apps/api/prisma/seed.ts`)*
-* **Mã khuyến mãi mẫu:** `SGU2026` (giảm 20%), `BREWLITE10` (giảm 10.000đ), `FREESHIP` (giảm 15.000đ).
+4. **Truy cập ứng dụng:**
+- **Frontend Web:** http://localhost:3000
+- **Backend API:** http://localhost:3001
+- **Health Check:** http://localhost:3001/health
+- **PostgreSQL:** `localhost:5433` (ánh xạ tới cổng `5432` trong container)
 
 ---
 
-## 4. Hướng dẫn Deploy lên Production (Supabase + Render + Vercel)
+### Cách 2: Chạy thủ công từng ứng dụng (Yêu cầu Node.js >= 20 / 22 và PostgreSQL)
 
-Quy trình triển khai chuẩn theo thứ tự: **Database (Supabase) $\rightarrow$ Backend (Render) $\rightarrow$ Frontend (Vercel)**.
+1. **Khởi chạy Backend (`apps/api`):**
+```bash
+cd apps/api
+cp .env.example .env
+# Cập nhật DATABASE_URL và DIRECT_URL trỏ tới PostgreSQL cục bộ trong file .env
+npm install
+npx prisma generate
+npx prisma db push
+npx prisma db seed
+npm run start:dev
+```
 
-### Bước 1: Tạo Database trên Supabase
-1. Đăng nhập [Supabase](https://supabase.com/), bấm **New Project**, đặt tên `brewlite-db` và lưu lại **Database Password**.
-2. Vào **Project Settings $\rightarrow$ Database $\rightarrow$ Connection string** (chọn tab **URI**) và lấy 2 chuỗi kết nối:
-   * **Transaction pooler (cổng `6543` — dùng cho ứng dụng chạy runtime):**
-     ```text
-     postgresql://postgres.[PROJECT-REF]:[PASSWORD]@[aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true](https://aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true)
-     ```
-   * **Session pooler / Direct connection (cổng `5432` — dùng để đẩy bảng Prisma):**
-     ```text
-     postgresql://postgres.[PROJECT-REF]:[PASSWORD]@[aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres](https://aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres)
-     ```
-3. Đẩy cấu trúc bảng và dữ liệu mẫu từ máy local lên Supabase:
-   ```powershell
-   cd E:\Software_Technology\BrewLite_2\apps\api
-   $env:DATABASE_URL="postgresql://postgres.[PROJECT-REF]:[PASSWORD]@[aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres](https://aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres)"
-   npx prisma db push
-   npx prisma db seed
-   ```
-   *(Kiểm tra trên Supabase $\rightarrow$ **Table Editor** thấy đầy đủ các bảng `User`, `Product`, `Order`, `OrderItem`, `Payment`, `Promotion`, `LoyaltyTransaction` là thành công.)*
-
----
-
-### Bước 2: Deploy Backend NestJS lên Render
-1. Đẩy toàn bộ mã nguồn dự án lên **GitHub**.
-2. Kiểm tra file `apps/api/src/main.ts` đã bật CORS cho phép domain frontend gọi tới:
-   ```ts
-   app.enableCors({
-     origin: process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(',') : true,
-     credentials: true,
-   });
-   ```
-3. Đăng nhập [Render](https://render.com/) $\rightarrow$ **New + $\rightarrow$ Web Service** $\rightarrow$ kết nối repository GitHub của dự án.
-4. Điền thông tin cấu hình:
-   * **Name:** `brewlite-api`
-   * **Root Directory:** `apps/api`
-   * **Runtime:** `Node`
-   * **Build Command:** `npm install && npx prisma generate && npm run build`
-   * **Start Command:** `npm run start:prod`
-5. Tại mục **Environment Variables**, thêm các biến sau:
-   * `DATABASE_URL` = *(Chuỗi Transaction pooler cổng `6543` có `?pgbouncer=true` của Supabase)*
-   * `JWT_SECRET` = *(Chuỗi bí mật ngẫu nhiên dài tối thiểu 32 ký tự)*
-   * `PORT` = `3001`
-   * `FRONTEND_URL` = `http://localhost:3000` *(sẽ cập nhật thêm domain Vercel ở Bước 3)*
-6. Bấm **Deploy Web Service** và chờ trạng thái chuyển sang **Live**. Copy URL backend được cấp (ví dụ: `https://brewlite-api.onrender.com`).
+2. **Khởi chạy Frontend (`apps/web`):**
+```bash
+cd apps/web
+cp .env.example .env.local
+# Đảm bảo NEXT_PUBLIC_API_URL=http://localhost:3001 trong file .env.local
+npm install
+npm run dev
+```
 
 ---
 
-### Bước 3: Deploy Frontend Next.js lên Vercel
-1. Đăng nhập [Vercel](https://vercel.com/) $\rightarrow$ **Add New... $\rightarrow$ Project** $\rightarrow$ Import repository GitHub của dự án.
-2. Cấu hình dự án:
-   * **Framework Preset:** `Next.js`
-   * **Root Directory:** bấm **Edit** và chọn `apps/web`
-3. Mở mục **Environment Variables**, thêm biến:
-   * `NEXT_PUBLIC_API_URL` = `https://brewlite-api.onrender.com` *(URL Render từ Bước 2, không có dấu `/` ở cuối)*
-4. Bấm **Deploy**. Sau khi hoàn tất, copy domain frontend Vercel cấp (ví dụ: `https://brewlite.vercel.app`).
+## 5. Cấu hình biến môi trường
+
+Toàn bộ secret và chuỗi kết nối không được lưu cứng trong mã nguồn (`NFR-08`).
+
+| Tên biến môi trường | Phạm vi sử dụng | Mô tả & Ví dụ cấu hình |
+| :--- | :--- | :--- |
+| `DATABASE_URL` | Backend (`apps/api`) | Chuỗi kết nối PostgreSQL chính (trên Production dùng Supabase Transaction Pooler cổng `6543` kèm `?pgbouncer=true`). |
+| `DIRECT_URL` | Backend (`apps/api`) | Chuỗi kết nối trực tiếp (Session Pooler cổng `5432`) phục vụ `prisma db push` và `prisma migrate`. |
+| `JWT_SECRET` | Backend (`apps/api`) | Khóa bí mật dùng để ký và xác thực JWT token. |
+| `FRONTEND_URL` | Backend (`apps/api`) | URL của Frontend (`http://localhost:3000` hoặc `https://brew-lite-2.vercel.app`) để cấu hình CORS và QR thanh toán. |
+| `NEXT_PUBLIC_API_URL` | Frontend (`apps/web`) | URL của Backend API (`http://localhost:3001` hoặc `https://brewlite2-api.onrender.com`). |
 
 ---
 
-### Bước 4: Hoàn tất đồng bộ CORS & Kiểm tra sau Deploy
-1. Quay lại **Render $\rightarrow$ `brewlite-api` $\rightarrow$ Environment**, cập nhật biến:
-   * `FRONTEND_URL` = `https://brewlite.vercel.app,http://localhost:3000`
-   Sau đó bấm **Save Changes** để Render tự khởi động lại dịch vụ.
-2. Mở `https://brewlite.vercel.app` và kiểm thử 3 luồng chính:
-   * Tải danh sách sản phẩm từ Supabase qua Render API.
-   * Thêm món có Size + Topping, nhập mã `SGU2026` để kiểm tra validate mã khuyến mãi.
-   * Tạo mã **QR MoMo** trên máy tính, dùng điện thoại quét trực tiếp mã QR (lúc này link QR đã mang domain thật `https://brewlite.vercel.app/mock-payment?...`) và xác nhận đơn hàng tự động cập nhật trạng thái `PAID`.
+## 6. Kiểm thử tự động (Unit, Integration & E2E Test)
+
+Hệ thống áp dụng kiểm thử tự động 3 tầng và tích hợp vào **GitHub Actions CI** để tự động chặn Pull Request nếu có bất kỳ bài kiểm thử hoặc bước build nào thất bại (`NFR-09`):
+
+```bash
+# 1. Chạy Unit Test, Lint và Build cho Backend (NestJS)
+cd apps/api
+npm run test
+npm run lint
+npm run build
+
+# 2. Chạy Component Test, Lint và Build cho Frontend (Next.js)
+cd apps/web
+npm run test
+npm run lint
+npm run build
+
+# 3. Chạy Integration Test (yêu cầu PostgreSQL đang hoạt động)
+cd apps/api
+npm run test:e2e
+```
+
+---
+
+## 7. Triển khai Cloud & Quy trình Rollback
+
+Chi tiết cấu hình hạ tầng đám mây (Supabase, Render, Vercel) được trình bày tại [`docs/architecture/deployment.md`](docs/architecture/deployment.md):
+
+- **Auto-deploy CI/CD:** Mọi Pull Request được hợp nhất vào nhánh `main` sẽ tự động kích hoạt quy trình build và phát hành phiên bản mới đồng thời trên **Vercel** (`brewlite-2`) và **Render** (`brewlite2-api`).
+- **Smoke Test sau triển khai:** Xác minh trạng thái dịch vụ và kết nối cơ sở dữ liệu qua `GET https://brewlite2-api.onrender.com/health` (kỳ vọng trả về HTTP `200 OK`).
+- **Quy trình Rollback khi gặp sự cố:**
+  - **Frontend (Vercel):** Mở tab **Deployments** của dự án `brewlite-2` $\rightarrow$ chọn bản triển khai ổn định gần nhất $\rightarrow$ nhấn **Instant Rollback**.
+  - **Backend (Render):** Mở mục **Events / Deploys** của dịch vụ `brewlite2-api` $\rightarrow$ chọn bản build ổn định trước đó $\rightarrow$ nhấn **Rollback to this deploy**.
+
+---
+
+## 8. Thành viên thực hiện (Nhóm BrewLite)
+
+| STT | Họ và tên | MSSV | Vai trò & Hạng mục phụ trách chính | Tỷ lệ đóng góp |
+| :---: | :--- | :--- | :--- | :---: |
+| 1 | **Tô Phúc Khang** | `3124410146` | **Nhóm trưởng** — Kiến trúc phân lớp & ADR, Deployment Diagram, Monorepo/Docker, Module Payments & Promotions (`Idempotency-Key`, Loyalty), GitHub Actions CI/CD, triển khai Supabase/Render, Unit Test. | `16,67%` |
+| 2 | **Phan Lê Ngọc Như Ý** | `3124720079` | Bối cảnh & Stakeholder (Task 1.1), Module Products & Seed DB, giao diện Menu & Chi tiết món (PWA, Loading/Empty/Error), 22 Unit Test API + 23 Component Test Web, minh chứng PR CI. | `16,67%` |
+| 3 | **Nguyễn Thị Tuyết Trâm** | `3124560092` | Đặc tả SRS (20 FR & 11 NFR), Module Auth (`register`, `login`, `JwtAuthGuard`, `GET /users/me`), giao diện Đăng ký/Đăng nhập, Unit Test Auth. | `16,67%` |
+| 4 | **Lương Thanh Tuấn** | `3124410391` | Sequence Diagram & Class Diagram, Prisma Schema 7 bảng & đồng bộ Supabase, Module Products/Orders (Transaction kiểm tra & trừ tồn kho), API `GET /health`, Integration Test. | `16,67%` |
+| 5 | **Nguyễn Thị Huyền Trang** | `3124410364` | Activity Diagram End-to-End, Store Giỏ hàng (`useCartStore`), API `GET /orders/me`, giao diện Theo dõi trạng thái đơn hàng (*Order Stepper*), E2E Test. | `16,67%` |
+| 6 | **Trần Thị Trúc Đào** | `3124720015` | Triển khai Frontend Next.js lên Vercel (`DJTEAM/brewlite-2`), cấu hình `NEXT_PUBLIC_API_URL` kết nối Render/Supabase, luồng thanh toán mã QR MoMo, Ma trận truy vết yêu cầu, hỗ trợ E2E Test. | `16,67%` |
