@@ -66,7 +66,10 @@ export class OrderTrackingService {
   /** PATCH /orders/:id/status */
   async updateStatus(orderId: string, next: OrderStatus, user: AuthUser) {
     const [order, dbUser] = await Promise.all([
-      this.prisma.order.findUnique({ where: { id: orderId } }),
+      this.prisma.order.findUnique({
+        where: { id: orderId },
+        include: { items: true, payment: true },
+      }),
       this.prisma.user.findUnique({
         where: { id: user.id },
         select: { role: true },
@@ -87,6 +90,30 @@ export class OrderTrackingService {
       throw new BadRequestException(
         `Không thể chuyển trạng thái đơn từ ${order.status} sang ${next}`,
       );
+    }
+
+    if (next === 'CANCELLED') {
+      return this.prisma.$transaction(async (tx) => {
+        for (const item of order.items) {
+          await tx.product.update({
+            where: { id: item.productId },
+            data: { stockQuantity: { increment: item.quantity } },
+          });
+        }
+
+        if (order.payment && order.payment.status === 'SUCCESS') {
+          await tx.payment.update({
+            where: { id: order.payment.id },
+            data: { status: 'REFUNDED' },
+          });
+        }
+
+        return tx.order.update({
+          where: { id: orderId },
+          data: { status: next },
+          include: { items: true, payment: true },
+        });
+      });
     }
 
     return this.prisma.order.update({
