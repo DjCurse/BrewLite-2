@@ -11,7 +11,6 @@ export interface RawListProductsQuery {
   q?: string;
 }
 
-/** Tham số đã được chuẩn hóa, an toàn để đưa vào truy vấn. */
 export interface ListProductsQuery {
   page: number;
   pageSize: number;
@@ -24,13 +23,6 @@ function toPositiveInt(value: string | undefined, fallback: number): number {
   return Number.isFinite(parsed) && parsed >= 1 ? parsed : fallback;
 }
 
-/**
- * Chuẩn hóa query string của GET /products:
- * - page >= 1 (mặc định 1)
- * - 1 <= pageSize <= 50 (mặc định 9)
- * - category rỗng hoặc "Tất cả" nghĩa là không lọc
- * - q được cắt khoảng trắng, rỗng nghĩa là không tìm kiếm
- */
 export function normalizeListProductsQuery(
   raw: RawListProductsQuery = {},
 ): ListProductsQuery {
