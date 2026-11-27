@@ -1,63 +1,58 @@
 @startuml sequence-checkout
-title Sequence Diagram - Use Case Đặt đơn & Thanh toán (BrewLite)
+title Sequence Diagram - Use Case Đặt đơn & Thanh toán (BrewLite-2)
 skinparam backgroundColor white
 actor Customer
 participant "Next.js UI" as UI
-participant "NestJS API" as API
+participant "NestJS API\n(PaymentsController)" as API
 database "PostgreSQL (Prisma)" as DB
-participant "Payment Service" as Payment
+participant "Payment Gateway\n(Mock MoMo/Card)" as Payment
 
 autonumber
 
 Customer -> UI: Click "Xác nhận thanh toán"
-UI -> API: POST /orders (Bearer JWT, items, promoCode)
+UI -> API: POST /payments (Bearer JWT, Idempotency-Key, items, method, promoCode)
 
 activate API
-API -> API: Validate JWT Token
-alt JWT không hợp lệ / Hết hạn
-    API --> UI: 401 Unauthorized
-    UI --> Customer: Chuyển hướng trang Đăng nhập
-else JWT hợp lệ
-    API -> DB: BEGIN TRANSACTION
-    activate DB
-    API -> DB: Kiểm tra tồn kho (stockQuantity) & mã KM
-    alt Không đủ tồn kho
-        API -> DB: ROLLBACK TRANSACTION
-        DB --> API: Out of stock error
-        API --> UI: 400 Bad Request (Hết hàng)
-        UI --> Customer: Thông báo món không đủ số lượng
-    else Tồn kho & khuyến mãi hợp lệ
-        API -> DB: Trừ stockQuantity & Tạo Order (PENDING)
-        API -> DB: COMMIT TRANSACTION
-        DB --> API: Trả về thông tin Order (PENDING)
-        deactivate DB
-        API --> UI: 201 Created (orderId, finalAmount)
-
-        UI -> API: POST /payments (Header: Idempotency-Key, orderId, method)
-        API -> DB: Kiểm tra trùng Idempotency-Key
-        alt Trùng Idempotency-Key đã xử lý
-            API --> UI: 200 OK (Trả về kết quả giao dịch cũ)
-            UI --> Customer: Hiển thị kết quả đã thanh toán
-        else Giao dịch mới
-            API -> Payment: Xử lý thanh toán (Ví MoMo QR / Thẻ)
-            activate Payment
-            alt Thanh toán thất bại
-                Payment --> API: Status: FAILED
-                API -> DB: Lưu Payment (FAILED), giữ Order ở PENDING
-                API --> UI: 400 Payment Failed
-                UI --> Customer: Báo lỗi thanh toán, cho phép thử lại
-            else Thanh toán thành công
-                Payment --> API: Status: SUCCESS (transactionId)
-                deactivate Payment
-                API -> DB: BEGIN TRANSACTION
-                activate DB
-                API -> DB: Lưu Payment (SUCCESS) & Cập nhật Order -> PAID
-                API -> DB: Tạo LoyaltyTransaction & Cộng điểm User
+API -> API: JwtAuthGuard & ValidationPipe & Check IDOR
+alt JWT thiếu/hết hạn hoặc lệch userId
+    API --> UI: 401 Unauthorized / 403 Forbidden
+    UI --> Customer: Yêu cầu đăng nhập lại / Báo lỗi quyền
+else Dữ liệu đầu vào sai (quantity <= 0, rỗng...)
+    API --> UI: 400 Bad Request (ValidationPipe)
+    UI --> Customer: Thông báo dữ liệu không hợp lệ
+else Hợp lệ (Authenticated & Valid DTO)
+    API -> DB: Kiểm tra Idempotency-Key trong bảng Order
+    alt Trùng Idempotency-Key (Replay)
+        DB --> API: Trả về bản ghi Order đã tồn tại
+        API --> UI: 200 OK (Trả về kết quả giao dịch cũ, không trừ kho lần 2)
+        UI --> Customer: Hiển thị đơn hàng đã thanh toán
+    else Giao dịch mới (Chưa có Idempotency-Key)
+        API -> Payment: Xử lý thanh toán (MoMo QR / Thẻ)
+        activate Payment
+        alt Thanh toán thất bại (simulateFailure = true)
+            Payment --> API: Status: PAYMENT_FAILED
+            API --> UI: 400 Bad Request (PAYMENT_FAILED)
+            UI --> Customer: Báo lỗi thanh toán, giữ nguyên giỏ hàng
+        else Thanh toán thành công
+            Payment --> API: Status: SUCCESS (transactionId: TXN-...)
+            deactivate Payment
+            API -> DB: BEGIN TRANSACTION (prisma.$transaction)
+            activate DB
+            API -> DB: Kiểm tra Product.stockQuantity >= quantity & Promotion
+            alt Không đủ tồn kho (stockQuantity < quantity)
+                API -> DB: ROLLBACK TRANSACTION
+                DB --> API: Out of stock error
+                API --> UI: 400 Bad Request (Sản phẩm hết hàng)
+                UI --> Customer: Thông báo món không đủ tồn kho
+            else Đủ tồn kho & Khuyến mãi hợp lệ
+                API -> DB: Trừ Product.stockQuantity & Tạo Order (status: PAID)
+                API -> DB: Tạo OrderItem & Payment (status: SUCCESS)
+                API -> DB: Tạo LoyaltyTransaction & Cộng User.loyaltyPoints
                 API -> DB: COMMIT TRANSACTION
-                DB --> API: Hoàn tất giao dịch
+                DB --> API: Trả về Order kèm items & payment
                 deactivate DB
-                API --> UI: 201 Created (Order PAID & Loyalty Points)
-                UI --> Customer: Xóa giỏ hàng & Mở trang Xác nhận đơn
+                API --> UI: 201 Created (JSON Order PAID + Payment)
+                UI --> Customer: Xóa giỏ hàng & Mở trang Theo dõi đơn (/orders)
             end
         end
     end
