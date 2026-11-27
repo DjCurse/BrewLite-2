@@ -1,5 +1,5 @@
 @startuml activity-diagram
-title Activity Diagram - Luồng Đặt Món, Thanh Toán và Theo Dõi Đơn Hàng (BrewLite)
+title Activity Diagram - Luồng Đặt Món, Thanh Toán và Xử Lý Đơn Hàng (BrewLite-2)
 skinparam backgroundColor white
 skinparam shadowing false
 
@@ -7,21 +7,21 @@ skinparam shadowing false
 start
 :Mở ứng dụng BrewLite & xem thực đơn;
 
-|#LightCyan|Frontend (Next.js PWA)|
+|#LightCyan|Frontend (Next.js)|
 :Gọi GET /products & hiển thị danh sách món;
 
 |#LightYellow|Khách hàng (Customer)|
 :Chọn món, Size (S/M/L), Topping & thêm vào giỏ;
 :Nhấn "Tiến hành thanh toán" (/checkout);
 
-|#LightCyan|Frontend (Next.js PWA)|
+|#LightCyan|Frontend (Next.js)|
 if (Đã đăng nhập có JWT hợp lệ?) then (Chưa đăng nhập)
   :Chuyển hướng trang Đăng nhập (/login);
   |#LightYellow|Khách hàng (Customer)|
   :Nhập email & mật khẩu;
   |#LightGreen|Backend (NestJS API)|
   :POST /auth/login (kiểm tra bcrypt & cấp JWT);
-  |#LightCyan|Frontend (Next.js PWA)|
+  |#LightCyan|Frontend (Next.js)|
   :Lưu Access Token & quay lại /checkout;
 else (Đã đăng nhập)
 endif
@@ -31,44 +31,41 @@ endif
 :Xác nhận đặt đơn và thanh toán;
 
 |#LightGreen|Backend (NestJS API)|
-:POST /orders (mở Database Transaction);
-:Kiểm tra tồn kho (stockQuantity >= quantity);
+:POST /payments (Bearer JWT + Idempotency-Key);
+:Kiểm tra JWT, DTO (ValidationPipe) & Idempotency-Key;
 
-if (Còn đủ tồn kho?) then (Hết hàng)
-  :Rollback Transaction;
-  |#LightCyan|Frontend (Next.js PWA)|
-  :Thông báo "Sản phẩm không đủ tồn kho";
-  |#LightYellow|Khách hàng (Customer)|
-  :Quay lại giỏ hàng điều chỉnh số lượng;
-  stop
-else (Đủ hàng)
+|#LightPink|Payment Gateway|
+:Xử lý giao dịch Ví MoMo QR / Thẻ;
+
+if (Kết quả thanh toán?) then (Thất bại)
+  :Trả về PAYMENT_FAILED;
   |#LightGreen|Backend (NestJS API)|
-  :Trừ stockQuantity & tạo Order (PENDING);
-  :Commit Transaction;
-  :POST /payments (kèm Idempotency-Key);
-
-  |#LightPink|Payment Service|
-  :Xử lý giao dịch Ví MoMo QR / Thẻ;
-
-  if (Kết quả thanh toán?) then (Thất bại)
-    :Trả về trạng thái FAILED;
-    |#LightGreen|Backend (NestJS API)|
-    :Lưu Payment (FAILED), giữ Order ở PENDING;
-    |#LightCyan|Frontend (Next.js PWA)|
-    :Báo lỗi thanh toán & giữ nguyên giỏ hàng;
-    |#LightYellow|Khách hàng (Customer)|
-    :Thử thanh toán lại hoặc hủy;
+  :Trả về 400 Bad Request (không trừ kho);
+  |#LightCyan|Frontend (Next.js)|
+  :Báo lỗi thanh toán & giữ nguyên giỏ hàng;
+  |#LightYellow|Khách hàng (Customer)|
+  :Thử thanh toán lại hoặc hủy;
+  stop
+else (Thành công)
+  |#LightPink|Payment Gateway|
+  :Trả về SUCCESS & Transaction ID;
+  |#LightGreen|Backend (NestJS API)|
+  :Mở prisma.$transaction & kiểm tra stockQuantity;
+  if (Còn đủ tồn kho?) then (Hết hàng)
+    :Rollback Transaction & trả về 400 Bad Request;
+    |#LightCyan|Frontend (Next.js)|
+    :Thông báo "Sản phẩm không đủ tồn kho";
     stop
-  else (Thành công)
-    |#LightPink|Payment Service|
-    :Trả về SUCCESS & Transaction ID;
+  else (Đủ hàng)
     |#LightGreen|Backend (NestJS API)|
-    :Cập nhật Order -> PAID & Payment -> SUCCESS;
-    :Ghi nhận LoyaltyTransaction (cộng điểm thưởng);
-    |#LightCyan|Frontend (Next.js PWA)|
+    :Trừ stockQuantity, tạo Order (PAID), OrderItem, Payment (SUCCESS);
+    :Ghi nhận LoyaltyTransaction & cộng điểm thưởng User;
+    :Commit Transaction & trả về 201 Created;
+    |#LightCyan|Frontend (Next.js)|
     :Xóa giỏ hàng & mở trang Theo dõi đơn (/orders);
     |#LightYellow|Khách hàng (Customer)|
-    :Theo dõi tiến trình (PREPARING -> READY -> COMPLETED);
+    :Theo dõi tiến trình (PAID -> CONFIRMED -> PREPARING -> READY -> COMPLETED);
+    :Hoặc hủy đơn (CANCELLED) trước khi pha chế -> Hoàn kho & REFUNDED;
     stop
   endif
 endif
